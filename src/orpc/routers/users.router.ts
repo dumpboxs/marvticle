@@ -62,7 +62,7 @@ const getUserByUsernameHandler = orpcBase.users.getUserByUsername.handler(
 
     if (!user) {
       throw errors.NOT_FOUND({
-        message: `Author @${input.username} not found.`,
+        message: `User @${input.username} not found.`,
       })
     }
 

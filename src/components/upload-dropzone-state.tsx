@@ -143,6 +143,7 @@ export const UploadDropzoneAvatarUploaded = ({
             variant="secondary"
             size="icon"
             className="bg-secondary/50"
+            aria-label="Change avatar"
             onClick={(e) => {
               e.stopPropagation()
               onChange()
@@ -156,6 +157,7 @@ export const UploadDropzoneAvatarUploaded = ({
             variant="destructive"
             size="icon"
             className="bg-secondary/50"
+            aria-label="Remove avatar"
             disabled={isDeleting}
             onClick={(e) => {
               e.stopPropagation()

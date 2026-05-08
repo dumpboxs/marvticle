@@ -9,8 +9,10 @@ export const ThemeToggleSidebar = () => {
     <ToggleGroup
       type="single"
       size="sm"
-      onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}
-      defaultValue={theme}
+      onValueChange={(value) => {
+        if (value) setTheme(value as 'light' | 'dark' | 'system')
+      }}
+      value={theme}
       variant="outline"
       spacing={2}
     >

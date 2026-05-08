@@ -44,7 +44,7 @@ export const Route = createFileRoute('/_main/$username_/settings/')({
 })
 
 type FormMeta = {
-  submitAction: 'upadate-banner' | 'update-avatar' | 'check-username' | null
+  submitAction: 'update-banner' | 'update-avatar' | 'check-username' | null
 }
 
 const onSubmitMeta: FormMeta = {
@@ -94,11 +94,35 @@ function RouteComponent() {
         case 'update-avatar':
           await authClient.updateUser({
             image: value.image,
+            fetchOptions: {
+              onSuccess: () => {
+                toast.success('User updated', {
+                  description: 'Profile updated successfully',
+                })
+              },
+              onError: (ctx) => {
+                toast.error('Failed update', {
+                  description: ctx.error.message,
+                })
+              },
+            },
           })
           break
-        case 'upadate-banner':
+        case 'update-banner':
           await authClient.updateUser({
             banner: value.banner,
+            fetchOptions: {
+              onSuccess: () => {
+                toast.success('User updated', {
+                  description: 'Profile updated successfully',
+                })
+              },
+              onError: (ctx) => {
+                toast.error('Failed update', {
+                  description: ctx.error.message,
+                })
+              },
+            },
           })
           break
         default:
@@ -107,6 +131,11 @@ function RouteComponent() {
             image: value.image,
             name: value.name,
             username: value.username,
+            bio: value.bio,
+            pronouns: value.pronouns,
+            location: value.location,
+            work: value.work,
+            education: value.education,
             fetchOptions: {
               onSuccess: () => {
                 toast.success('User updated', {
@@ -169,7 +198,7 @@ function RouteComponent() {
                   onChange={(value) => {
                     field.handleChange(value)
                     if (!form.store.state.isSubmitting) {
-                      void form.handleSubmit({ submitAction: 'upadate-banner' })
+                      void form.handleSubmit({ submitAction: 'update-banner' })
                     }
                   }}
                   label="Profile banner"

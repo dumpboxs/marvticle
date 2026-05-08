@@ -34,6 +34,11 @@ export const MainSidebarHeader = ({ ...props }: MainSidebarHeaderProps) => {
         <SidebarMenuItem>
           <SidebarMenuButton
             className="mx-auto w-fit data-[slot=sidebar-menu-button]:p-2!"
+            aria-label={
+              state === 'collapsed' || isMobile
+                ? 'Expand sidebar'
+                : 'Collapse sidebar'
+            }
             onClick={toggleSidebar}
           >
             {state === 'collapsed' || isMobile ? (

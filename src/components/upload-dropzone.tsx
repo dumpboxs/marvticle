@@ -69,6 +69,7 @@ export const UploadDropzone = ({
   const uploadAbortRef = useRef<AbortController | null>(null)
   const deleteAbortRef = useRef<AbortController | null>(null)
   const isMountedRef = useRef<boolean>(true)
+  const currentPreviewUrlRef = useRef<string | undefined>(undefined)
 
   const apiEndpoint = '/api/s3/cover-image'
 
@@ -393,12 +394,20 @@ export const UploadDropzone = ({
   useEffect(() => {
     if (prevValueRef.current !== value) {
       prevValueRef.current = value
-      setManagedFile(getManagedFileFromValue(value))
+      setManagedFile((prev) => {
+        if (prev?.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(prev.previewUrl)
+        }
+        return getManagedFileFromValue(value)
+      })
     }
   }, [value])
 
   useEffect(() => {
-    const currentPreviewUrl = managedFile?.previewUrl
+    currentPreviewUrlRef.current = managedFile?.previewUrl
+  }, [managedFile?.previewUrl])
+
+  useEffect(() => {
     isMountedRef.current = true
 
     return () => {
@@ -406,9 +415,8 @@ export const UploadDropzone = ({
       uploadAbortRef.current?.abort()
       deleteAbortRef.current?.abort()
       xhrRef.current?.abort()
-      revokeObjectUrl(currentPreviewUrl)
+      revokeObjectUrl(currentPreviewUrlRef.current)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const { getInputProps, getRootProps, isDragActive, open } = useDropzone({

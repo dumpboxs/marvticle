@@ -7,6 +7,7 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 
+import { toast } from 'sonner'
 import type { auth } from '#/lib/auth/server'
 import { UserAvatar } from '#/components/user-avatar'
 import { Button } from '#/components/ui/button'
@@ -60,6 +61,11 @@ export const MainSidebarFooter = ({
       fetchOptions: {
         onSuccess: () => {
           void router.invalidate()
+        },
+        onError: (ctx) => {
+          toast.error('Sign out failed', {
+            description: ctx.error.message,
+          })
         },
       },
     })

@@ -10,22 +10,31 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PostFormRouteImport } from './routes/_post-form'
+import { Route as MainRouteImport } from './routes/_main'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as ApiOgStaticRouteImport } from './routes/api/og-static'
 import { Route as ApiOgRouteImport } from './routes/api/og'
 import { Route as PostFormNewRouteImport } from './routes/_post-form/new'
+import { Route as MainUsernameRouteImport } from './routes/_main/$username'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as ApiS3CoverImageRouteImport } from './routes/api/s3.cover-image'
 import { Route as ApiOrpcSplatRouteImport } from './routes/api/orpc.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
+import { Route as MainUsernameSettingsRouteImport } from './routes/_main/$username_.settings'
 import { Route as AppUsernamePostSlugRouteImport } from './routes/_app/$username/$postSlug'
+import { Route as MainUsernameSettingsIndexRouteImport } from './routes/_main/$username_.settings.index'
 import { Route as PostFormUsernamePostSlugEditRouteImport } from './routes/_post-form/$username.$postSlug.edit'
+import { Route as MainUsernameSettingsAccountRouteImport } from './routes/_main/$username_.settings.account'
 
 const PostFormRoute = PostFormRouteImport.update({
   id: '/_post-form',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MainRoute = MainRouteImport.update({
+  id: '/_main',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -56,6 +65,11 @@ const PostFormNewRoute = PostFormNewRouteImport.update({
   path: '/new',
   getParentRoute: () => PostFormRoute,
 } as any)
+const MainUsernameRoute = MainUsernameRouteImport.update({
+  id: '/$username',
+  path: '/$username',
+  getParentRoute: () => MainRoute,
+} as any)
 const AuthSignUpRoute = AuthSignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
@@ -81,35 +95,57 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MainUsernameSettingsRoute = MainUsernameSettingsRouteImport.update({
+  id: '/$username_/settings',
+  path: '/$username/settings',
+  getParentRoute: () => MainRoute,
+} as any)
 const AppUsernamePostSlugRoute = AppUsernamePostSlugRouteImport.update({
   id: '/$username/$postSlug',
   path: '/$username/$postSlug',
   getParentRoute: () => AppRoute,
 } as any)
+const MainUsernameSettingsIndexRoute =
+  MainUsernameSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => MainUsernameSettingsRoute,
+  } as any)
 const PostFormUsernamePostSlugEditRoute =
   PostFormUsernamePostSlugEditRouteImport.update({
     id: '/$username/$postSlug/edit',
     path: '/$username/$postSlug/edit',
     getParentRoute: () => PostFormRoute,
   } as any)
+const MainUsernameSettingsAccountRoute =
+  MainUsernameSettingsAccountRouteImport.update({
+    id: '/account',
+    path: '/account',
+    getParentRoute: () => MainUsernameSettingsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
+  '/$username': typeof MainUsernameRoute
   '/new': typeof PostFormNewRoute
   '/api/og': typeof ApiOgRoute
   '/api/og-static': typeof ApiOgStaticRoute
   '/$username/$postSlug': typeof AppUsernamePostSlugRoute
+  '/$username/settings': typeof MainUsernameSettingsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/orpc/$': typeof ApiOrpcSplatRoute
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
+  '/$username/settings/account': typeof MainUsernameSettingsAccountRoute
   '/$username/$postSlug/edit': typeof PostFormUsernamePostSlugEditRoute
+  '/$username/settings/': typeof MainUsernameSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
+  '/$username': typeof MainUsernameRoute
   '/new': typeof PostFormNewRoute
   '/api/og': typeof ApiOgRoute
   '/api/og-static': typeof ApiOgStaticRoute
@@ -117,24 +153,31 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/orpc/$': typeof ApiOrpcSplatRoute
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
+  '/$username/settings/account': typeof MainUsernameSettingsAccountRoute
   '/$username/$postSlug/edit': typeof PostFormUsernamePostSlugEditRoute
+  '/$username/settings': typeof MainUsernameSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/_main': typeof MainRouteWithChildren
   '/_post-form': typeof PostFormRouteWithChildren
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
+  '/_main/$username': typeof MainUsernameRoute
   '/_post-form/new': typeof PostFormNewRoute
   '/api/og': typeof ApiOgRoute
   '/api/og-static': typeof ApiOgStaticRoute
   '/_app/': typeof AppIndexRoute
   '/_app/$username/$postSlug': typeof AppUsernamePostSlugRoute
+  '/_main/$username_/settings': typeof MainUsernameSettingsRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/orpc/$': typeof ApiOrpcSplatRoute
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
+  '/_main/$username_/settings/account': typeof MainUsernameSettingsAccountRoute
   '/_post-form/$username/$postSlug/edit': typeof PostFormUsernamePostSlugEditRoute
+  '/_main/$username_/settings/': typeof MainUsernameSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -142,19 +185,24 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/sign-up'
+    | '/$username'
     | '/new'
     | '/api/og'
     | '/api/og-static'
     | '/$username/$postSlug'
+    | '/$username/settings'
     | '/api/auth/$'
     | '/api/orpc/$'
     | '/api/s3/cover-image'
+    | '/$username/settings/account'
     | '/$username/$postSlug/edit'
+    | '/$username/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/sign-in'
     | '/sign-up'
+    | '/$username'
     | '/new'
     | '/api/og'
     | '/api/og-static'
@@ -162,28 +210,36 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/orpc/$'
     | '/api/s3/cover-image'
+    | '/$username/settings/account'
     | '/$username/$postSlug/edit'
+    | '/$username/settings'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/_main'
     | '/_post-form'
     | '/_auth/sign-in'
     | '/_auth/sign-up'
+    | '/_main/$username'
     | '/_post-form/new'
     | '/api/og'
     | '/api/og-static'
     | '/_app/'
     | '/_app/$username/$postSlug'
+    | '/_main/$username_/settings'
     | '/api/auth/$'
     | '/api/orpc/$'
     | '/api/s3/cover-image'
+    | '/_main/$username_/settings/account'
     | '/_post-form/$username/$postSlug/edit'
+    | '/_main/$username_/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  MainRoute: typeof MainRouteWithChildren
   PostFormRoute: typeof PostFormRouteWithChildren
   ApiOgRoute: typeof ApiOgRoute
   ApiOgStaticRoute: typeof ApiOgStaticRoute
@@ -199,6 +255,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof PostFormRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_main': {
+      id: '/_main'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof MainRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth': {
@@ -243,6 +306,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PostFormNewRouteImport
       parentRoute: typeof PostFormRoute
     }
+    '/_main/$username': {
+      id: '/_main/$username'
+      path: '/$username'
+      fullPath: '/$username'
+      preLoaderRoute: typeof MainUsernameRouteImport
+      parentRoute: typeof MainRoute
+    }
     '/_auth/sign-up': {
       id: '/_auth/sign-up'
       path: '/sign-up'
@@ -278,6 +348,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_main/$username_/settings': {
+      id: '/_main/$username_/settings'
+      path: '/$username/settings'
+      fullPath: '/$username/settings'
+      preLoaderRoute: typeof MainUsernameSettingsRouteImport
+      parentRoute: typeof MainRoute
+    }
     '/_app/$username/$postSlug': {
       id: '/_app/$username/$postSlug'
       path: '/$username/$postSlug'
@@ -285,12 +362,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUsernamePostSlugRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_main/$username_/settings/': {
+      id: '/_main/$username_/settings/'
+      path: '/'
+      fullPath: '/$username/settings/'
+      preLoaderRoute: typeof MainUsernameSettingsIndexRouteImport
+      parentRoute: typeof MainUsernameSettingsRoute
+    }
     '/_post-form/$username/$postSlug/edit': {
       id: '/_post-form/$username/$postSlug/edit'
       path: '/$username/$postSlug/edit'
       fullPath: '/$username/$postSlug/edit'
       preLoaderRoute: typeof PostFormUsernamePostSlugEditRouteImport
       parentRoute: typeof PostFormRoute
+    }
+    '/_main/$username_/settings/account': {
+      id: '/_main/$username_/settings/account'
+      path: '/account'
+      fullPath: '/$username/settings/account'
+      preLoaderRoute: typeof MainUsernameSettingsAccountRouteImport
+      parentRoute: typeof MainUsernameSettingsRoute
     }
   }
 }
@@ -319,6 +410,31 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface MainUsernameSettingsRouteChildren {
+  MainUsernameSettingsAccountRoute: typeof MainUsernameSettingsAccountRoute
+  MainUsernameSettingsIndexRoute: typeof MainUsernameSettingsIndexRoute
+}
+
+const MainUsernameSettingsRouteChildren: MainUsernameSettingsRouteChildren = {
+  MainUsernameSettingsAccountRoute: MainUsernameSettingsAccountRoute,
+  MainUsernameSettingsIndexRoute: MainUsernameSettingsIndexRoute,
+}
+
+const MainUsernameSettingsRouteWithChildren =
+  MainUsernameSettingsRoute._addFileChildren(MainUsernameSettingsRouteChildren)
+
+interface MainRouteChildren {
+  MainUsernameRoute: typeof MainUsernameRoute
+  MainUsernameSettingsRoute: typeof MainUsernameSettingsRouteWithChildren
+}
+
+const MainRouteChildren: MainRouteChildren = {
+  MainUsernameRoute: MainUsernameRoute,
+  MainUsernameSettingsRoute: MainUsernameSettingsRouteWithChildren,
+}
+
+const MainRouteWithChildren = MainRoute._addFileChildren(MainRouteChildren)
+
 interface PostFormRouteChildren {
   PostFormNewRoute: typeof PostFormNewRoute
   PostFormUsernamePostSlugEditRoute: typeof PostFormUsernamePostSlugEditRoute
@@ -336,6 +452,7 @@ const PostFormRouteWithChildren = PostFormRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  MainRoute: MainRouteWithChildren,
   PostFormRoute: PostFormRouteWithChildren,
   ApiOgRoute: ApiOgRoute,
   ApiOgStaticRoute: ApiOgStaticRoute,

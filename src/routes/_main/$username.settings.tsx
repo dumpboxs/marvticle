@@ -93,7 +93,7 @@ function RouteComponent() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_3fr] lg:gap-8">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-8">
           <ButtonGroup className="gap-2 lg:hidden">
             {settingsLinks.map((link, i) => {
               const Icon = link.icon

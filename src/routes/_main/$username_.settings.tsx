@@ -26,7 +26,7 @@ export const Route = createFileRoute('/_main/$username_/settings')({
       throw redirect({
         to: '/sign-in',
         search: {
-          redirect: location.href,
+          redirect_to: location.href,
         },
         replace: true,
         viewTransition: true,

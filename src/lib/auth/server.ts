@@ -74,6 +74,13 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 3,
   },
+  socialProviders: {
+    github: {
+      enabled: true,
+      clientId: env.GITHUB_CLIENT_ID,
+      clientSecret: env.GITHUB_CLIENT_SECRET,
+    },
+  },
   trustedOrigins: [env.BETTER_AUTH_URL],
   user: {
     additionalFields: {

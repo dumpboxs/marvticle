@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { useForm } from '@tanstack/react-form-start'
+import { useForm } from '@tanstack/react-form'
 import { LockIcon, MailboxIcon, UserIcon } from '@phosphor-icons/react'
 import { AtSignIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { toast } from 'sonner'
@@ -26,6 +26,7 @@ function RouteComponent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false)
 
   const navigate = useNavigate()
+  const search = Route.useSearch()
 
   const form = useForm({
     defaultValues: {
@@ -94,7 +95,7 @@ function RouteComponent() {
           description: 'Please sign in to continue.',
         })
 
-        void navigate({ to: '/sign-in', viewTransition: true })
+        void navigate({ to: '/sign-in', viewTransition: true, search })
       }
     },
   })

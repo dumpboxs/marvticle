@@ -14,6 +14,7 @@ export const env = createEnv({
     AWS_REGION: z.string(),
     AWS_BUCKET_NAME: z.string(),
     VITE_BUCKET_PUBLIC_URL: z.url(),
+    RESEND_API_KEY: z.string(),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

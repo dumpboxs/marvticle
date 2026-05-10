@@ -8,10 +8,14 @@ import {
   username as usernamePlugin,
 } from 'better-auth/plugins'
 import { dash as dashPlugin } from '@better-auth/infra'
+import { Resend } from 'resend'
 
 import * as schema from '#/db/schemas'
 import { db } from '#/db'
 import { env } from '#/lib/env/server'
+import { PasswordResetEmail } from '#/components/email/reset-password-email'
+
+const resend = new Resend(env.RESEND_API_KEY)
 
 export const auth = betterAuth({
   account: {
@@ -41,6 +45,20 @@ export const auth = betterAuth({
     autoSignIn: false,
     minPasswordLength: 8,
     maxPasswordLength: 128,
+    resetPasswordTokenExpiresIn: 60 * 60 * 1, // 1 hour
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }, _request) => {
+      await resend.emails.send({
+        from: 'Marvticle <onboarding@resend.dev>',
+        to: user.email,
+        subject: 'Reset your Marvticle password',
+        react: PasswordResetEmail({
+          resetUrl: url,
+          userEmail: user.email,
+          userName: user.name,
+        }),
+      })
+    },
   },
   plugins: [
     dashPlugin({

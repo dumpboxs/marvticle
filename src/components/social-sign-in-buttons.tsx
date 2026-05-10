@@ -20,7 +20,7 @@ export const SocialSignInButtons = () => {
     startTransitionGithub(async () => {
       await authClient.signIn.social({
         provider: 'github',
-        callbackURL: redirect_to,
+        callbackURL: redirect_to ?? '/',
         fetchOptions: {
           onSuccess: () => {
             void router.invalidate()

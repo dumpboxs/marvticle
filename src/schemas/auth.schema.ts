@@ -44,7 +44,7 @@ export const resetPasswordSchema = z
       .min(8, { error: 'Password must be at least 8 characters' }),
     confirmPassword: z
       .string()
-      .nonempty({ error: 'Confirm password is required' }),
+      .min(8, { error: 'Password must be at least 8 characters' }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',

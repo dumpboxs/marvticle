@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react'
 
 import type { auth } from '#/lib/auth/server'
-import { MainSidebarContent } from '#/components/main-sidebar-conntent'
+import { MainSidebarContent } from '#/components/main-sidebar-content'
 import { MainSidebarFooter } from '#/components/main-sidebar-footer'
 import { MainSidebarHeader } from '#/components/main-sidebar-header'
 import { Sidebar } from '#/components/ui/sidebar'

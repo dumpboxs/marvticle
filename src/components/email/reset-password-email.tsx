@@ -14,14 +14,14 @@ import {
 } from '@react-email/components'
 
 interface PasswordResetEmailProps {
+  appUrl: string
   resetUrl: string
   userEmail: string
   userName: string
 }
 
 export const PasswordResetEmail = (props: PasswordResetEmailProps) => {
-  const { resetUrl, userEmail, userName } = props
-  const appUrl = import.meta.env.VITE_APP_URL
+  const { appUrl, resetUrl, userEmail, userName } = props
 
   return (
     <Html lang="en" dir="ltr">

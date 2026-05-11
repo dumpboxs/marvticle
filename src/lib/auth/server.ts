@@ -53,6 +53,7 @@ export const auth = betterAuth({
         to: user.email,
         subject: 'Reset your Marvticle password',
         react: PasswordResetEmail({
+          appUrl: env.BETTER_AUTH_URL,
           resetUrl: url,
           userEmail: user.email,
           userName: user.name,

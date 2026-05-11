@@ -1,13 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router'
 import { useForm } from '@tanstack/react-form-start'
-import { toast } from 'sonner'
+import { createFileRoute } from '@tanstack/react-router'
+
 import { useEffect, useRef, useState } from 'react'
+
 import { CheckIcon, XIcon } from 'lucide-react'
-import {
-  useUserProfile,
-  userProfileQueryOptions,
-} from '#/hooks/use-user-profile.ts'
-import { generalSettingsSchema } from '#/schemas/users.schema.ts'
+import { toast } from 'sonner'
+
+import { Button } from '#/components/ui/button.tsx'
 import {
   Field,
   FieldDescription,
@@ -15,19 +14,23 @@ import {
   FieldGroup,
   FieldLabel,
 } from '#/components/ui/field.tsx'
-import { Input } from '#/components/ui/input.tsx'
-import { Button } from '#/components/ui/button.tsx'
-import { Spinner } from '#/components/ui/spinner.tsx'
-import { UploadDropzone } from '#/components/upload-dropzone.tsx'
-import { cn } from '#/lib/utils'
-import { authClient } from '#/lib/auth/client'
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
   InputGroupText,
 } from '#/components/ui/input-group'
+import { Input } from '#/components/ui/input.tsx'
+import { Spinner } from '#/components/ui/spinner.tsx'
 import { Textarea } from '#/components/ui/textarea'
+import { UploadDropzone } from '#/components/upload-dropzone.tsx'
+import {
+  useUserProfile,
+  userProfileQueryOptions,
+} from '#/hooks/use-user-profile.ts'
+import { authClient } from '#/lib/auth/client'
+import { cn } from '#/lib/utils'
+import { generalSettingsSchema } from '#/schemas/users.schema.ts'
 
 export const Route = createFileRoute('/_main/$username_/settings/')({
   beforeLoad: () => ({
@@ -80,15 +83,23 @@ function RouteComponent() {
     onSubmit: async ({ value, meta }) => {
       switch (meta.submitAction) {
         case 'check-username': {
-          const { data } = await authClient.isUsernameAvailable({
+          await authClient.isUsernameAvailable({
             username: value.username,
+            fetchOptions: {
+              onSuccess: (ctx) => {
+                if (ctx.data) {
+                  // oxlint-disable-next-line typescript/no-unsafe-member-access
+                  setIsUsernameAvailable(ctx.data.available as boolean)
+                } else {
+                  setIsUsernameAvailable(false)
+                }
+              },
+              onError: () => {
+                setIsUsernameAvailable(null)
+                toast.error('Failed to check username availability')
+              },
+            },
           })
-
-          if (data) {
-            setIsUsernameAvailable(data.available)
-          } else {
-            setIsUsernameAvailable(false)
-          }
           break
         }
         case 'update-avatar':

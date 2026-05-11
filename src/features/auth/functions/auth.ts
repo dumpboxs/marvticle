@@ -1,6 +1,6 @@
 // oxlint-disable typescript/no-unsafe-assignment
 import { createServerFn } from '@tanstack/react-start'
-import { getRequestHeaders } from '@tanstack/react-start/server'
+import { getRequestHeaders, setResponseStatus } from '@tanstack/react-start/server'
 
 import { changePasswordSchema } from '#/features/auth/schemas/auth.schema'
 import { authClient } from '#/lib/auth/client'
@@ -11,7 +11,8 @@ export const listUserAccountsFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     if (!context.auth) {
-      throw new Error('Not authenticated')
+      setResponseStatus(401)
+      throw new Error('Unauthorized')
     }
 
     const headers = getRequestHeaders()
@@ -30,7 +31,8 @@ export const listSessionsFn = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     if (!context.auth) {
-      throw new Error('Not authenticated')
+      setResponseStatus(401)
+      throw new Error('Unauthorized')
     }
 
     const headers = getRequestHeaders()
@@ -50,7 +52,8 @@ export const changePasswordFn = createServerFn({ method: 'POST' })
   .inputValidator(changePasswordSchema)
   .handler(async ({ context, data }) => {
     if (!context.auth) {
-      throw new Error('Not authenticated')
+      setResponseStatus(401)
+      throw new Error('Unauthorized')
     }
 
     const headers = getRequestHeaders()

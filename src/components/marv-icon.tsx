@@ -1,11 +1,10 @@
-import type { SVGProps } from 'react'
+import { type SVGProps } from 'react'
 
 type MarvIconProps = SVGProps<SVGSVGElement>
 
 export const MarvIcon = ({ ...props }: MarvIconProps) => {
   return (
     <svg
-      id="Layer_1"
       xmlns="http://www.w3.org/2000/svg"
       version="1.1"
       viewBox="0 0 460.11 409.97"

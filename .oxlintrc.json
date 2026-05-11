@@ -2,7 +2,7 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["react"],
   "categories": {
-    "correctness": "off"
+    "correctness": "warn"
   },
   "options": {
     "typeAware": true
@@ -23,7 +23,8 @@
   ],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/exhaustive-deps": "warn"
+    "react/exhaustive-deps": "warn",
+    "react/no-children-prop": "off"
   },
   "overrides": [
     {

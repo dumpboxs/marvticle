@@ -1,12 +1,14 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
-import { z } from 'zod'
 import { useForm } from '@tanstack/react-form-start'
-import { LockIcon } from '@phosphor-icons/react'
-import { EyeIcon, EyeOffIcon } from 'lucide-react'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { useState } from 'react'
+
+import { LockIcon } from '@phosphor-icons/react'
+import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { resetPasswordSchema } from '#/schemas/auth.schema'
+import { z } from 'zod'
+
+import { Button } from '#/components/ui/button'
 import { Field, FieldError, FieldGroup } from '#/components/ui/field'
 import {
   InputGroup,
@@ -14,12 +16,12 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from '#/components/ui/input-group'
-import { Button } from '#/components/ui/button'
 import { Spinner } from '#/components/ui/spinner'
 import { authClient } from '#/lib/auth/client'
+import { resetPasswordSchema } from '#/schemas/auth.schema'
 
 const resetPasswordSearchSchema = z.object({
-  token: z.string().optional(),
+  token: z.string(),
 })
 
 export const Route = createFileRoute('/_auth/reset-password')({

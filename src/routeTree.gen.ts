@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RichTextEditorRouteImport } from './routes/rich-text-editor'
 import { Route as PostFormRouteImport } from './routes/_post-form'
 import { Route as MainRouteImport } from './routes/_main'
 import { Route as AuthRouteImport } from './routes/_auth'
@@ -31,6 +32,11 @@ import { Route as MainUsernameSettingsIndexRouteImport } from './routes/_main/$u
 import { Route as PostFormUsernamePostSlugEditRouteImport } from './routes/_post-form/$username.$postSlug.edit'
 import { Route as MainUsernameSettingsAccountRouteImport } from './routes/_main/$username_.settings.account'
 
+const RichTextEditorRoute = RichTextEditorRouteImport.update({
+  id: '/rich-text-editor',
+  path: '/rich-text-editor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PostFormRoute = PostFormRouteImport.update({
   id: '/_post-form',
   getParentRoute: () => rootRouteImport,
@@ -138,6 +144,7 @@ const MainUsernameSettingsAccountRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/rich-text-editor': typeof RichTextEditorRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/rich-text-editor': typeof RichTextEditorRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/_main': typeof MainRouteWithChildren
   '/_post-form': typeof PostFormRouteWithChildren
+  '/rich-text-editor': typeof RichTextEditorRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/sign-in': typeof AuthSignInRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/rich-text-editor'
     | '/forgot-password'
     | '/reset-password'
     | '/sign-in'
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/rich-text-editor'
     | '/forgot-password'
     | '/reset-password'
     | '/sign-in'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_main'
     | '/_post-form'
+    | '/rich-text-editor'
     | '/_auth/forgot-password'
     | '/_auth/reset-password'
     | '/_auth/sign-in'
@@ -265,6 +277,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   MainRoute: typeof MainRouteWithChildren
   PostFormRoute: typeof PostFormRouteWithChildren
+  RichTextEditorRoute: typeof RichTextEditorRoute
   ApiOgRoute: typeof ApiOgRoute
   ApiOgStaticRoute: typeof ApiOgStaticRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -274,6 +287,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/rich-text-editor': {
+      id: '/rich-text-editor'
+      path: '/rich-text-editor'
+      fullPath: '/rich-text-editor'
+      preLoaderRoute: typeof RichTextEditorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_post-form': {
       id: '/_post-form'
       path: ''
@@ -496,6 +516,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   MainRoute: MainRouteWithChildren,
   PostFormRoute: PostFormRouteWithChildren,
+  RichTextEditorRoute: RichTextEditorRoute,
   ApiOgRoute: ApiOgRoute,
   ApiOgStaticRoute: ApiOgStaticRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

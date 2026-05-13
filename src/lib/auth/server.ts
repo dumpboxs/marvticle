@@ -1,3 +1,4 @@
+import { dash as dashPlugin } from '@better-auth/infra'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import {
@@ -7,13 +8,12 @@ import {
   openAPI as openAPIPlugin,
   username as usernamePlugin,
 } from 'better-auth/plugins'
-import { dash as dashPlugin } from '@better-auth/infra'
 import { Resend } from 'resend'
 
-import * as schema from '#/db/schemas'
-import { db } from '#/db'
-import { env } from '#/lib/env/server'
 import { PasswordResetEmail } from '#/components/email/reset-password-email'
+import { db } from '#/db'
+import * as schema from '#/db/schemas'
+import { env } from '#/lib/env/server'
 
 const resend = new Resend(env.RESEND_API_KEY)
 
@@ -127,6 +127,11 @@ export const auth = betterAuth({
         required: false,
         input: true,
         fieldName: 'work',
+      },
+      verified: {
+        type: 'boolean',
+        required: true,
+        input: false,
       },
     },
   },

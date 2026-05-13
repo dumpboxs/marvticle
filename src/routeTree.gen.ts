@@ -19,6 +19,7 @@ import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
+import { Route as MainUsernameIndexRouteImport } from './routes/_main/$username.index'
 import { Route as ApiS3CoverImageRouteImport } from './routes/api/s3.cover-image'
 import { Route as ApiOrpcSplatRouteImport } from './routes/api/orpc.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
@@ -75,6 +76,11 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => AuthRoute,
 } as any)
+const MainUsernameIndexRoute = MainUsernameIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MainUsernameRoute,
+} as any)
 const ApiS3CoverImageRoute = ApiS3CoverImageRouteImport.update({
   id: '/api/s3/cover-image',
   path: '/api/s3/cover-image',
@@ -119,7 +125,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
-  '/$username': typeof MainUsernameRoute
+  '/$username': typeof MainUsernameRouteWithChildren
   '/api/og': typeof ApiOgRoute
   '/api/og-static': typeof ApiOgStaticRoute
   '/$username/settings': typeof MainUsernameSettingsRouteWithChildren
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/orpc/$': typeof ApiOrpcSplatRoute
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
+  '/$username/': typeof MainUsernameIndexRoute
   '/$username/settings/account': typeof MainUsernameSettingsAccountRoute
   '/$username/settings/': typeof MainUsernameSettingsIndexRoute
 }
@@ -136,13 +143,13 @@ export interface FileRoutesByTo {
   '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
-  '/$username': typeof MainUsernameRoute
   '/api/og': typeof ApiOgRoute
   '/api/og-static': typeof ApiOgStaticRoute
   '/threads/new': typeof MainThreadsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/orpc/$': typeof ApiOrpcSplatRoute
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
+  '/$username': typeof MainUsernameIndexRoute
   '/$username/settings/account': typeof MainUsernameSettingsAccountRoute
   '/$username/settings': typeof MainUsernameSettingsIndexRoute
 }
@@ -154,7 +161,7 @@ export interface FileRoutesById {
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
-  '/_main/$username': typeof MainUsernameRoute
+  '/_main/$username': typeof MainUsernameRouteWithChildren
   '/api/og': typeof ApiOgRoute
   '/api/og-static': typeof ApiOgStaticRoute
   '/_main/': typeof MainIndexRoute
@@ -163,6 +170,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/orpc/$': typeof ApiOrpcSplatRoute
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
+  '/_main/$username/': typeof MainUsernameIndexRoute
   '/_main/$username_/settings/account': typeof MainUsernameSettingsAccountRoute
   '/_main/$username_/settings/': typeof MainUsernameSettingsIndexRoute
 }
@@ -182,6 +190,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/orpc/$'
     | '/api/s3/cover-image'
+    | '/$username/'
     | '/$username/settings/account'
     | '/$username/settings/'
   fileRoutesByTo: FileRoutesByTo
@@ -191,13 +200,13 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
-    | '/$username'
     | '/api/og'
     | '/api/og-static'
     | '/threads/new'
     | '/api/auth/$'
     | '/api/orpc/$'
     | '/api/s3/cover-image'
+    | '/$username'
     | '/$username/settings/account'
     | '/$username/settings'
   id:
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/orpc/$'
     | '/api/s3/cover-image'
+    | '/_main/$username/'
     | '/_main/$username_/settings/account'
     | '/_main/$username_/settings/'
   fileRoutesById: FileRoutesById
@@ -303,6 +313,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_main/$username/': {
+      id: '/_main/$username/'
+      path: '/'
+      fullPath: '/$username/'
+      preLoaderRoute: typeof MainUsernameIndexRouteImport
+      parentRoute: typeof MainUsernameRoute
+    }
     '/api/s3/cover-image': {
       id: '/api/s3/cover-image'
       path: '/api/s3/cover-image'
@@ -371,6 +388,18 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
+interface MainUsernameRouteChildren {
+  MainUsernameIndexRoute: typeof MainUsernameIndexRoute
+}
+
+const MainUsernameRouteChildren: MainUsernameRouteChildren = {
+  MainUsernameIndexRoute: MainUsernameIndexRoute,
+}
+
+const MainUsernameRouteWithChildren = MainUsernameRoute._addFileChildren(
+  MainUsernameRouteChildren,
+)
+
 interface MainUsernameSettingsRouteChildren {
   MainUsernameSettingsAccountRoute: typeof MainUsernameSettingsAccountRoute
   MainUsernameSettingsIndexRoute: typeof MainUsernameSettingsIndexRoute
@@ -385,14 +414,14 @@ const MainUsernameSettingsRouteWithChildren =
   MainUsernameSettingsRoute._addFileChildren(MainUsernameSettingsRouteChildren)
 
 interface MainRouteChildren {
-  MainUsernameRoute: typeof MainUsernameRoute
+  MainUsernameRoute: typeof MainUsernameRouteWithChildren
   MainIndexRoute: typeof MainIndexRoute
   MainUsernameSettingsRoute: typeof MainUsernameSettingsRouteWithChildren
   MainThreadsNewRoute: typeof MainThreadsNewRoute
 }
 
 const MainRouteChildren: MainRouteChildren = {
-  MainUsernameRoute: MainUsernameRoute,
+  MainUsernameRoute: MainUsernameRouteWithChildren,
   MainIndexRoute: MainIndexRoute,
   MainUsernameSettingsRoute: MainUsernameSettingsRouteWithChildren,
   MainThreadsNewRoute: MainThreadsNewRoute,

@@ -1,22 +1,22 @@
+import { TanStackDevtools } from '@tanstack/react-devtools'
+import { formDevtoolsPlugin } from '@tanstack/react-form-devtools'
+import { type QueryClient } from '@tanstack/react-query'
+import { ReactQueryDevtoolsPanel } from '@tanstack/react-query-devtools'
 import {
   HeadContent,
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/react-router'
-import { TanStackDevtools } from '@tanstack/react-devtools'
-import { ReactQueryDevtoolsPanel } from '@tanstack/react-query-devtools'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { formDevtoolsPlugin } from '@tanstack/react-form-devtools'
 
-import type { QueryClient } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
+import { type ReactNode } from 'react'
 
-import type { orpc } from '#/orpc/client'
-import appCss from '#/styles.css?url'
 import { ThemeProvider } from '#/components/providers/theme-provider'
-import { TooltipProvider } from '#/components/ui/tooltip'
 import { Toaster } from '#/components/ui/sonner'
+import { TooltipProvider } from '#/components/ui/tooltip'
 import { getAuthFn } from '#/functions/get-auth-fn'
+import { type orpc } from '#/orpc/client'
+import appCss from '#/styles.css?url'
 
 interface MyRouterContext {
   orpc: typeof orpc
@@ -87,7 +87,11 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className="scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent scrollbar-gutter-stable"
+      suppressHydrationWarning
+    >
       <head>
         <HeadContent />
       </head>

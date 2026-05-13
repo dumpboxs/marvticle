@@ -1,4 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
+
 import { orpc } from '#/orpc/client'
 
 export const userProfileQueryOptions = (username: string) =>
@@ -11,3 +12,7 @@ export const userProfileQueryOptions = (username: string) =>
 
 export const useUserProfile = (username: string) =>
   useSuspenseQuery(userProfileQueryOptions(username))
+
+export const currentUserQueryOptions = () => orpc.me.queryOptions()
+
+export const useCurrentUser = () => useSuspenseQuery(currentUserQueryOptions())

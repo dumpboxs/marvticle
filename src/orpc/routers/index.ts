@@ -1,16 +1,17 @@
-import type {
-  InferRouterInputs,
-  InferRouterOutputs,
-  RouterClient,
+import {
+  type InferRouterInputs,
+  type InferRouterOutputs,
+  type RouterClient,
 } from '@orpc/server'
 
 import { orpcBase } from '#/orpc'
 import { threadsRouter } from '#/orpc/routers/threads.routers'
-import { usersRouter } from '#/orpc/routers/users.router'
+import { getMeHandler, usersRouter } from '#/orpc/routers/users.router'
 
 export const orpcRouters = orpcBase.router({
   users: usersRouter,
   threads: threadsRouter,
+  me: getMeHandler,
 })
 
 export type ORPCRouterClient = RouterClient<typeof orpcRouters>

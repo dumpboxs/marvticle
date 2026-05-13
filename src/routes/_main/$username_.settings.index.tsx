@@ -1,4 +1,4 @@
-import { useForm } from '@tanstack/react-form-start'
+import { useForm } from '@tanstack/react-form'
 import { createFileRoute } from '@tanstack/react-router'
 
 import { useEffect, useRef, useState } from 'react'
@@ -24,21 +24,21 @@ import { Input } from '#/components/ui/input.tsx'
 import { Spinner } from '#/components/ui/spinner.tsx'
 import { Textarea } from '#/components/ui/textarea'
 import { UploadDropzone } from '#/components/upload-dropzone.tsx'
+import { userUpdateSchema } from '#/features/users/schemas/users.schema'
 import {
-  useUserProfile,
-  userProfileQueryOptions,
+  currentUserQueryOptions,
+  useCurrentUser,
 } from '#/hooks/use-user-profile.ts'
 import { authClient } from '#/lib/auth/client'
 import { cn } from '#/lib/utils'
-import { generalSettingsSchema } from '#/schemas/users.schema.ts'
 
 export const Route = createFileRoute('/_main/$username_/settings/')({
   beforeLoad: () => ({
     breadcrumb: 'Settings',
   }),
-  loader: async ({ context, params }) => {
+  loader: async ({ context }) => {
     const user = await context.queryClient.ensureQueryData(
-      userProfileQueryOptions(params.username)
+      currentUserQueryOptions()
     )
 
     return { user }
@@ -60,8 +60,7 @@ function RouteComponent() {
   >(null)
   const usernameTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { username } = Route.useParams()
-  const { data: user } = useUserProfile(username)
+  const { data: user } = useCurrentUser()
 
   const form = useForm({
     defaultValues: {
@@ -77,8 +76,8 @@ function RouteComponent() {
     },
     onSubmitMeta,
     validators: {
-      onChange: generalSettingsSchema,
-      onSubmit: generalSettingsSchema,
+      onChange: userUpdateSchema,
+      onSubmit: userUpdateSchema,
     },
     onSubmit: async ({ value, meta }) => {
       switch (meta.submitAction) {

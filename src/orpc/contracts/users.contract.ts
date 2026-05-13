@@ -1,25 +1,8 @@
-import { orpcBaseContract as base } from '#/orpc/contracts/base.contract'
 import {
-  authorProfileSchema,
-  getAuthorByUsernameParamsSchema,
   getUserByUsernameParamsSchema,
-  userProfileSchema,
-} from '#/schemas/users.schema'
-
-const getAuthorByUsernameContract = base
-  .route({
-    path: '/users/{username}/profile',
-    method: 'GET',
-    summary: 'Get author profile by username',
-    description:
-      'Retrieve full author profile data including bio, metadata, and profile details.',
-    tags: ['Users'],
-    operationId: 'getAuthorByUsername',
-    successStatus: 200,
-    successDescription: 'Author profile retrieved successfully',
-  })
-  .input(getAuthorByUsernameParamsSchema)
-  .output(authorProfileSchema)
+  userSelectSchema,
+} from '#/features/users/schemas/users.schema'
+import { orpcBaseContract as base } from '#/orpc/contracts/base.contract'
 
 const getUserByUsernameContract = base
   .route({
@@ -34,9 +17,28 @@ const getUserByUsernameContract = base
     successDescription: 'User profile retrieved successfully',
   })
   .input(getUserByUsernameParamsSchema)
-  .output(userProfileSchema)
+  .output(
+    userSelectSchema.omit({
+      displayUsername: true,
+      email: true,
+      emailVerified: true,
+    })
+  )
 
 export const usersContract = {
-  getAuthorByUsername: getAuthorByUsernameContract,
   getUserByUsername: getUserByUsernameContract,
 }
+
+export const getMeContract = base
+  .route({
+    path: '/me',
+    method: 'GET',
+    summary: 'Get current user',
+    description:
+      'Retrieve authenticated user data for settings and profile editing.',
+    tags: ['Me'],
+    operationId: 'getMe',
+    successStatus: 200,
+    successDescription: 'Current user retrieved successfully',
+  })
+  .output(userSelectSchema)

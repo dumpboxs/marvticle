@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import {
   createCodeBlockConfig,
@@ -20,52 +27,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#/components/ui/select'
+import { SHIKI_BUNDLED_LANGUAGE_GROUPS } from '#/lib/shiki.bundle'
 
 export const DEFAULT_CODE_BLOCK_LANGUAGE = 'javascript'
+export const CODE_BLOCK_FONT_FAMILY = 'var(--font-mono)'
+export const CODE_BLOCK_FONT_SIZE = '0.9375rem'
+export const CODE_BLOCK_LINE_HEIGHT = '1.8'
 
 export const CODE_BLOCK_LANGUAGES = [
   { id: 'text', name: 'Plain Text' },
-  { id: 'javascript', name: 'JavaScript' },
-  { id: 'typescript', name: 'TypeScript' },
-  { id: 'python', name: 'Python' },
-  { id: 'java', name: 'Java' },
-  { id: 'c', name: 'C' },
-  { id: 'cpp', name: 'C++' },
-  { id: 'csharp', name: 'C#' },
-] as const
+  ...SHIKI_BUNDLED_LANGUAGE_GROUPS.map(({ id, name }) => ({ id, name })),
+]
 
-export const SUPPORTED_CODE_BLOCK_LANGUAGES = {
-  text: {
-    name: 'Plain Text',
-    aliases: ['txt', 'plaintext', 'plain'],
-  },
-  javascript: {
-    name: 'JavaScript',
-    aliases: ['js'],
-  },
-  typescript: {
-    name: 'TypeScript',
-    aliases: ['ts'],
-  },
-  python: {
-    name: 'Python',
-    aliases: ['py'],
-  },
-  java: {
-    name: 'Java',
-  },
-  c: {
-    name: 'C',
-  },
-  cpp: {
-    name: 'C++',
-    aliases: ['c++'],
-  },
-  csharp: {
-    name: 'C#',
-    aliases: ['c#', 'cs'],
-  },
-} satisfies NonNullable<CodeBlockOptions['supportedLanguages']>
+export const SUPPORTED_CODE_BLOCK_LANGUAGES =
+  SHIKI_BUNDLED_LANGUAGE_GROUPS.reduce<
+    NonNullable<CodeBlockOptions['supportedLanguages']>
+  >(
+    (languages, language) => {
+      const aliases = 'aliases' in language ? language.aliases : undefined
+
+      languages[language.id] = aliases
+        ? { name: language.name, aliases: [...aliases] }
+        : { name: language.name }
+
+      return languages
+    },
+    {
+      text: {
+        name: 'Plain Text',
+        aliases: ['txt', 'plaintext', 'plain'],
+      },
+    }
+  )
 
 type CodeBlockRenderProps = ReactCustomBlockRenderProps<
   typeof createCodeBlockConfig
@@ -101,7 +94,21 @@ function getInlineText(content: unknown): string {
 
 function getLanguageName(language: string) {
   return (
-    CODE_BLOCK_LANGUAGES.find((item) => item.id === language)?.name ?? language
+    getCanonicalLanguage(language)?.name ??
+    CODE_BLOCK_LANGUAGES.find((item) => item.id === language)?.name ??
+    language
+  )
+}
+
+function getCanonicalLanguage(language: string) {
+  if (['text', 'txt', 'plaintext', 'plain'].includes(language)) {
+    return { id: 'text', name: 'Plain Text' }
+  }
+
+  return SHIKI_BUNDLED_LANGUAGE_GROUPS.find(
+    (item) =>
+      item.id === language ||
+      ('aliases' in item && item.aliases.some((alias) => alias === language))
   )
 }
 
@@ -109,19 +116,25 @@ function CustomCodeBlock({ block, editor, contentRef }: CodeBlockRenderProps) {
   const [copied, setCopied] = useState(false)
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const language = block.props.language || DEFAULT_CODE_BLOCK_LANGUAGE
+  const canonicalLanguage = getCanonicalLanguage(language)
+  const selectedLanguage = canonicalLanguage?.id ?? language
   const canEdit = editor.isEditable
 
   const languageOptions = useMemo(() => {
-    if (CODE_BLOCK_LANGUAGES.some((item) => item.id === language)) {
+    if (CODE_BLOCK_LANGUAGES.some((item) => item.id === selectedLanguage)) {
       return CODE_BLOCK_LANGUAGES
     }
 
-    return [{ id: language, name: language }, ...CODE_BLOCK_LANGUAGES]
-  }, [language])
+    return [
+      { id: selectedLanguage, name: selectedLanguage },
+      ...CODE_BLOCK_LANGUAGES,
+    ]
+  }, [selectedLanguage])
 
   const handleLanguageChange = useCallback(
     (nextLanguage: string) => {
       if (!editor.isEditable) return
+      if (!editor.getBlock(block.id)) return
 
       editor.updateBlock(block.id, {
         props: {
@@ -150,6 +163,7 @@ function CustomCodeBlock({ block, editor, contentRef }: CodeBlockRenderProps) {
 
   const handleDelete = useCallback(() => {
     if (!editor.isEditable) return
+    if (!editor.getBlock(block.id)) return
 
     const editorWithParagraph = editor as EditableBlockNoteEditor
 
@@ -167,29 +181,35 @@ function CustomCodeBlock({ block, editor, contentRef }: CodeBlockRenderProps) {
     }
   }, [])
 
+  const codeStyle = {
+    '--code-block-font-family': CODE_BLOCK_FONT_FAMILY,
+    '--code-block-font-size': CODE_BLOCK_FONT_SIZE,
+    '--code-block-line-height': CODE_BLOCK_LINE_HEIGHT,
+  } as CSSProperties
+
   return (
-    <div className="w-full overflow-hidden rounded-none border bg-none">
+    <div className="my-5 w-full overflow-hidden rounded-none border bg-none text-primary">
       <div
-        className="flex h-10 items-center justify-between gap-3 border-b px-2"
+        className="flex h-11 items-center justify-between gap-4 border-b px-4"
         contentEditable={false}
       >
         <Select
-          value={language}
+          value={selectedLanguage}
           onValueChange={handleLanguageChange}
           disabled={!canEdit}
         >
           <SelectTrigger
             aria-label="Code block language"
             size="sm"
-            className="h-7 w-32 rounded-none border-none! bg-transparent! px-2 text-xs"
+            className="h-8 w-44 rounded-none border-none! bg-transparent! px-0 text-xs text-primary"
           >
             <SelectValue>
-              <span className="font-semibold text-muted-foreground capitalize">
+              <span className="font-medium text-primary">
                 {getLanguageName(language)}
               </span>
             </SelectValue>
           </SelectTrigger>
-          <SelectContent align="start" className="h-64 w-36 min-w-36">
+          <SelectContent align="start" className="h-64 w-52 min-w-52">
             {languageOptions.map((item) => (
               <SelectItem key={item.id} value={item.id}>
                 {item.name}
@@ -203,7 +223,7 @@ function CustomCodeBlock({ block, editor, contentRef }: CodeBlockRenderProps) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 gap-1.5 px-2 text-muted-foreground"
+            className="h-8 gap-1.5 px-2 text-primary"
             contentEditable={false}
             onClick={handleCopy}
           >
@@ -218,7 +238,7 @@ function CustomCodeBlock({ block, editor, contentRef }: CodeBlockRenderProps) {
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="size-7 text-muted-foreground"
+            className="size-8 text-primary"
             contentEditable={false}
             aria-label="Delete code block"
             title="Delete code block"
@@ -230,11 +250,12 @@ function CustomCodeBlock({ block, editor, contentRef }: CodeBlockRenderProps) {
         </div>
       </div>
 
-      <pre className="m-0 overflow-x-auto p-3 text-sm leading-6">
+      <pre className="m-0 overflow-x-auto px-5 py-4 text-primary">
         <code
           ref={contentRef}
-          className="block min-w-full font-mono whitespace-pre outline-none"
+          className="block min-w-full font-(family-name:--code-block-font-family) text-(length:--code-block-font-size) leading-(--code-block-line-height) whitespace-pre outline-none"
           data-language={language}
+          style={codeStyle}
         />
       </pre>
     </div>

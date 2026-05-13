@@ -9,7 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as RichTextEditorRouteImport } from './routes/rich-text-editor'
 import { Route as MainRouteImport } from './routes/_main'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as MainIndexRouteImport } from './routes/_main/index'
@@ -23,15 +22,11 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-pa
 import { Route as ApiS3CoverImageRouteImport } from './routes/api/s3.cover-image'
 import { Route as ApiOrpcSplatRouteImport } from './routes/api/orpc.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
+import { Route as MainThreadsNewRouteImport } from './routes/_main/threads.new'
 import { Route as MainUsernameSettingsRouteImport } from './routes/_main/$username_.settings'
 import { Route as MainUsernameSettingsIndexRouteImport } from './routes/_main/$username_.settings.index'
 import { Route as MainUsernameSettingsAccountRouteImport } from './routes/_main/$username_.settings.account'
 
-const RichTextEditorRoute = RichTextEditorRouteImport.update({
-  id: '/rich-text-editor',
-  path: '/rich-text-editor',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const MainRoute = MainRouteImport.update({
   id: '/_main',
   getParentRoute: () => rootRouteImport,
@@ -95,6 +90,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MainThreadsNewRoute = MainThreadsNewRouteImport.update({
+  id: '/threads/new',
+  path: '/threads/new',
+  getParentRoute: () => MainRoute,
+} as any)
 const MainUsernameSettingsRoute = MainUsernameSettingsRouteImport.update({
   id: '/$username_/settings',
   path: '/$username/settings',
@@ -115,7 +115,6 @@ const MainUsernameSettingsAccountRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof MainIndexRoute
-  '/rich-text-editor': typeof RichTextEditorRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
@@ -124,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/api/og': typeof ApiOgRoute
   '/api/og-static': typeof ApiOgStaticRoute
   '/$username/settings': typeof MainUsernameSettingsRouteWithChildren
+  '/threads/new': typeof MainThreadsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/orpc/$': typeof ApiOrpcSplatRoute
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
@@ -132,7 +132,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof MainIndexRoute
-  '/rich-text-editor': typeof RichTextEditorRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
@@ -140,6 +139,7 @@ export interface FileRoutesByTo {
   '/$username': typeof MainUsernameRoute
   '/api/og': typeof ApiOgRoute
   '/api/og-static': typeof ApiOgStaticRoute
+  '/threads/new': typeof MainThreadsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/orpc/$': typeof ApiOrpcSplatRoute
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
@@ -150,7 +150,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthRouteWithChildren
   '/_main': typeof MainRouteWithChildren
-  '/rich-text-editor': typeof RichTextEditorRoute
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/sign-in': typeof AuthSignInRoute
@@ -160,6 +159,7 @@ export interface FileRoutesById {
   '/api/og-static': typeof ApiOgStaticRoute
   '/_main/': typeof MainIndexRoute
   '/_main/$username_/settings': typeof MainUsernameSettingsRouteWithChildren
+  '/_main/threads/new': typeof MainThreadsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/orpc/$': typeof ApiOrpcSplatRoute
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
@@ -170,7 +170,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/rich-text-editor'
     | '/forgot-password'
     | '/reset-password'
     | '/sign-in'
@@ -179,6 +178,7 @@ export interface FileRouteTypes {
     | '/api/og'
     | '/api/og-static'
     | '/$username/settings'
+    | '/threads/new'
     | '/api/auth/$'
     | '/api/orpc/$'
     | '/api/s3/cover-image'
@@ -187,7 +187,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/rich-text-editor'
     | '/forgot-password'
     | '/reset-password'
     | '/sign-in'
@@ -195,6 +194,7 @@ export interface FileRouteTypes {
     | '/$username'
     | '/api/og'
     | '/api/og-static'
+    | '/threads/new'
     | '/api/auth/$'
     | '/api/orpc/$'
     | '/api/s3/cover-image'
@@ -204,7 +204,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_auth'
     | '/_main'
-    | '/rich-text-editor'
     | '/_auth/forgot-password'
     | '/_auth/reset-password'
     | '/_auth/sign-in'
@@ -214,6 +213,7 @@ export interface FileRouteTypes {
     | '/api/og-static'
     | '/_main/'
     | '/_main/$username_/settings'
+    | '/_main/threads/new'
     | '/api/auth/$'
     | '/api/orpc/$'
     | '/api/s3/cover-image'
@@ -224,7 +224,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthRoute: typeof AuthRouteWithChildren
   MainRoute: typeof MainRouteWithChildren
-  RichTextEditorRoute: typeof RichTextEditorRoute
   ApiOgRoute: typeof ApiOgRoute
   ApiOgStaticRoute: typeof ApiOgStaticRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -234,13 +233,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/rich-text-editor': {
-      id: '/rich-text-editor'
-      path: '/rich-text-editor'
-      fullPath: '/rich-text-editor'
-      preLoaderRoute: typeof RichTextEditorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_main': {
       id: '/_main'
       path: ''
@@ -332,6 +324,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_main/threads/new': {
+      id: '/_main/threads/new'
+      path: '/threads/new'
+      fullPath: '/threads/new'
+      preLoaderRoute: typeof MainThreadsNewRouteImport
+      parentRoute: typeof MainRoute
+    }
     '/_main/$username_/settings': {
       id: '/_main/$username_/settings'
       path: '/$username/settings'
@@ -389,12 +388,14 @@ interface MainRouteChildren {
   MainUsernameRoute: typeof MainUsernameRoute
   MainIndexRoute: typeof MainIndexRoute
   MainUsernameSettingsRoute: typeof MainUsernameSettingsRouteWithChildren
+  MainThreadsNewRoute: typeof MainThreadsNewRoute
 }
 
 const MainRouteChildren: MainRouteChildren = {
   MainUsernameRoute: MainUsernameRoute,
   MainIndexRoute: MainIndexRoute,
   MainUsernameSettingsRoute: MainUsernameSettingsRouteWithChildren,
+  MainThreadsNewRoute: MainThreadsNewRoute,
 }
 
 const MainRouteWithChildren = MainRoute._addFileChildren(MainRouteChildren)
@@ -402,7 +403,6 @@ const MainRouteWithChildren = MainRoute._addFileChildren(MainRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRouteWithChildren,
   MainRoute: MainRouteWithChildren,
-  RichTextEditorRoute: RichTextEditorRoute,
   ApiOgRoute: ApiOgRoute,
   ApiOgStaticRoute: ApiOgStaticRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

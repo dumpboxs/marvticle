@@ -3,12 +3,17 @@ import {
   createSingletonShorthands,
 } from '@shikijs/core'
 import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript'
+import oneDarkProTheme from '@shikijs/themes/one-dark-pro'
 /* Generate by @shikijs/codegen */
 import type {
   DynamicImportLanguageRegistration,
   DynamicImportThemeRegistration,
   HighlighterGeneric,
+  ThemedToken,
+  ThemeRegistration,
 } from '@shikijs/types'
+
+export const CODE_BLOCK_SHIKI_THEME = 'marvticle-code-dark'
 
 type BundledLanguage =
   | 'angular-html'
@@ -89,8 +94,134 @@ type BundledLanguage =
   | 'yaml'
   | 'yml'
   | 'zig'
-type BundledTheme = 'one-dark-pro' | 'one-light'
+type BundledTheme =
+  | 'one-dark-pro'
+  | 'one-light'
+  | 'github-light'
+  | 'github-dark'
+  | typeof CODE_BLOCK_SHIKI_THEME
 type Highlighter = HighlighterGeneric<BundledLanguage, BundledTheme>
+
+const CODE_BLOCK_BOLD_SCOPES = [
+  'entity.name.function',
+  'support.function',
+  'support.function.any-method',
+  'variable.function',
+  'meta.function-call',
+  'meta.function-call.generic',
+  'meta.method',
+  'meta.method-call',
+  'meta.method.identifier',
+  'keyword.other.special-method',
+  'entity.name.type',
+  'entity.name.type.class',
+  'entity.name.class',
+  'entity.name.namespace',
+  'support.class',
+  'support.type',
+  'support.type.primitive',
+  'support.type.builtin',
+  'entity.other.inherited-class',
+  'variable.other.class',
+  'entity.name.tag',
+  'entity.other.attribute-name',
+] as const
+
+export const SHIKI_BUNDLED_LANGUAGE_GROUPS = [
+  { id: 'angular-html', name: 'Angular HTML' },
+  { id: 'angular-ts', name: 'Angular TypeScript' },
+  { id: 'astro', name: 'Astro' },
+  { id: 'c', name: 'C' },
+  { id: 'cpp', name: 'C++', aliases: ['c++'] },
+  { id: 'csharp', name: 'C#', aliases: ['c#', 'cs'] },
+  { id: 'css', name: 'CSS' },
+  { id: 'csv', name: 'CSV' },
+  { id: 'dart', name: 'Dart' },
+  { id: 'dockerfile', name: 'Dockerfile', aliases: ['docker'] },
+  { id: 'dotenv', name: 'Dotenv' },
+  { id: 'git-commit', name: 'Git Commit' },
+  { id: 'git-rebase', name: 'Git Rebase' },
+  { id: 'go', name: 'Go' },
+  { id: 'graphql', name: 'GraphQL', aliases: ['gql'] },
+  { id: 'html', name: 'HTML' },
+  { id: 'hxml', name: 'HXML' },
+  { id: 'java', name: 'Java' },
+  { id: 'javascript', name: 'JavaScript', aliases: ['js', 'cjs', 'mjs'] },
+  { id: 'json', name: 'JSON' },
+  { id: 'json5', name: 'JSON5' },
+  { id: 'jsonc', name: 'JSONC' },
+  { id: 'jsonl', name: 'JSONL' },
+  { id: 'jsx', name: 'JSX' },
+  { id: 'kotlin', name: 'Kotlin', aliases: ['kt', 'kts'] },
+  { id: 'latex', name: 'LaTeX' },
+  { id: 'lua', name: 'Lua' },
+  { id: 'luau', name: 'Luau' },
+  { id: 'markdown', name: 'Markdown', aliases: ['md'] },
+  { id: 'mdc', name: 'MDC' },
+  { id: 'mdx', name: 'MDX' },
+  { id: 'mermaid', name: 'Mermaid', aliases: ['mmd'] },
+  { id: 'nginx', name: 'Nginx' },
+  { id: 'php', name: 'PHP' },
+  { id: 'plsql', name: 'PL/SQL' },
+  { id: 'postcss', name: 'PostCSS' },
+  { id: 'prisma', name: 'Prisma' },
+  { id: 'python', name: 'Python', aliases: ['py'] },
+  { id: 'ruby', name: 'Ruby', aliases: ['rb'] },
+  { id: 'rust', name: 'Rust', aliases: ['rs'] },
+  { id: 'sass', name: 'Sass' },
+  { id: 'scss', name: 'SCSS' },
+  {
+    id: 'shellscript',
+    name: 'Shell',
+    aliases: ['bash', 'sh', 'shell', 'zsh'],
+  },
+  { id: 'sql', name: 'SQL' },
+  { id: 'svelte', name: 'Svelte' },
+  { id: 'swift', name: 'Swift' },
+  { id: 'toml', name: 'TOML' },
+  { id: 'tsv', name: 'TSV' },
+  { id: 'tsx', name: 'TSX' },
+  {
+    id: 'typescript',
+    name: 'TypeScript',
+    aliases: ['ts', 'cts', 'mts'],
+  },
+  { id: 'vue-html', name: 'Vue HTML' },
+  { id: 'xml', name: 'XML' },
+  { id: 'yaml', name: 'YAML', aliases: ['yml'] },
+  { id: 'zig', name: 'Zig' },
+] as const satisfies ReadonlyArray<{
+  id: BundledLanguage
+  name: string
+  aliases?: readonly BundledLanguage[]
+}>
+
+type ShikiLanguageGroupAlias =
+  | (typeof SHIKI_BUNDLED_LANGUAGE_GROUPS)[number]['id']
+  | ((typeof SHIKI_BUNDLED_LANGUAGE_GROUPS)[number] extends infer Group
+      ? Group extends { readonly aliases: readonly (infer Alias)[] }
+        ? Alias
+        : never
+      : never)
+type AssertNever<T extends never> = T
+export type ShikiBundledLanguageCoverage = AssertNever<
+  | Exclude<BundledLanguage, ShikiLanguageGroupAlias>
+  | Exclude<ShikiLanguageGroupAlias, BundledLanguage>
+>
+
+const codeBlockShikiTheme = Object.freeze({
+  ...oneDarkProTheme,
+  name: CODE_BLOCK_SHIKI_THEME,
+  tokenColors: [
+    ...(oneDarkProTheme.tokenColors ?? []),
+    {
+      scope: [...CODE_BLOCK_BOLD_SCOPES],
+      settings: {
+        fontStyle: 'bold',
+      },
+    },
+  ],
+}) satisfies ThemeRegistration
 
 const bundledLanguages = {
   'angular-html': () => import('@shikijs/langs-precompiled/angular-html'),
@@ -177,7 +308,63 @@ const bundledThemes = {
   'one-light': () => import('@shikijs/themes/one-light'),
   'github-light': () => import('@shikijs/themes/github-light-default'),
   'github-dark': () => import('@shikijs/themes/github-dark-default'),
+  [CODE_BLOCK_SHIKI_THEME]: async () => ({
+    default: codeBlockShikiTheme,
+  }),
 } as Record<BundledTheme, DynamicImportThemeRegistration>
+
+function getFontStyleHtmlStyle(token: ThemedToken) {
+  const htmlStyle = { ...token.htmlStyle }
+
+  if (token.color) htmlStyle.color = token.color
+  if (token.bgColor) htmlStyle['background-color'] = token.bgColor
+
+  const fontStyle = token.fontStyle ?? 0
+
+  if (fontStyle & 1) htmlStyle['font-style'] = 'italic'
+  if (fontStyle & 2) htmlStyle['font-weight'] = '700'
+
+  const textDecorations = []
+  if (fontStyle & 4) textDecorations.push('underline')
+  if (fontStyle & 8) textDecorations.push('line-through')
+  if (textDecorations.length > 0) {
+    htmlStyle['text-decoration'] = textDecorations.join(' ')
+  }
+
+  return Object.keys(htmlStyle).length > 0 ? htmlStyle : undefined
+}
+
+function applyFontStyleHtmlStyles(tokens: ThemedToken[][]) {
+  return tokens.map((line) =>
+    line.map((token) => {
+      const htmlStyle = getFontStyleHtmlStyle(token)
+
+      return htmlStyle ? { ...token, htmlStyle } : token
+    })
+  )
+}
+
+export function withFontStyleHtmlStyles<
+  Language extends string,
+  Theme extends string,
+>(highlighter: HighlighterGeneric<Language, Theme>) {
+  return {
+    ...highlighter,
+    codeToTokens(code, options) {
+      const result = highlighter.codeToTokens(code, options)
+
+      return {
+        ...result,
+        tokens: applyFontStyleHtmlStyles(result.tokens),
+      }
+    },
+    codeToTokensBase(code, options) {
+      return applyFontStyleHtmlStyles(
+        highlighter.codeToTokensBase(code, options)
+      )
+    },
+  } satisfies HighlighterGeneric<Language, Theme>
+}
 
 const createHighlighter = /* @__PURE__ */ createBundledHighlighter<
   BundledLanguage,

@@ -5,10 +5,12 @@ import type {
 } from '@orpc/server'
 
 import { orpcBase } from '#/orpc'
+import { threadsRouter } from '#/orpc/routers/threads.routers'
 import { usersRouter } from '#/orpc/routers/users.router'
 
 export const orpcRouters = orpcBase.router({
   users: usersRouter,
+  threads: threadsRouter,
 })
 
 export type ORPCRouterClient = RouterClient<typeof orpcRouters>

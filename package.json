@@ -95,6 +95,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/react-form-devtools": "latest",

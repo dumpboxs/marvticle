@@ -22,8 +22,6 @@ export const userTable = pgTable('user', {
   bio: text('bio'),
   pronouns: text('pronouns'),
   location: text('location'),
-  education: text('education'),
-  work: text('work'),
   verified: boolean('verified').default(false).notNull(),
   role: text('role'),
   banned: boolean('banned').default(false),

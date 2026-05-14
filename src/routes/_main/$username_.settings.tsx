@@ -1,7 +1,7 @@
 import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 
 import { SettingsLayout } from '#/features/settings/components/settings-layout'
-import { userProfileQueryOptions } from '#/hooks/use-user-profile'
+import { userProfileQueryOptions } from '#/features/users/hooks/use-user-profile'
 
 export const Route = createFileRoute('/_main/$username_/settings')({
   staticData: { breadcrumb: 'Settings' },

@@ -24,11 +24,11 @@ import { Input } from '#/components/ui/input.tsx'
 import { Spinner } from '#/components/ui/spinner.tsx'
 import { Textarea } from '#/components/ui/textarea'
 import { UploadDropzone } from '#/components/upload-dropzone.tsx'
-import { userUpdateSchema } from '#/features/users/schemas/users.schema'
 import {
   currentUserQueryOptions,
   useCurrentUser,
-} from '#/hooks/use-user-profile.ts'
+} from '#/features/users/hooks/use-user-profile'
+import { userUpdateSchema } from '#/features/users/schemas/users.schema'
 import { authClient } from '#/lib/auth/client'
 import { cn } from '#/lib/utils'
 
@@ -71,8 +71,6 @@ function RouteComponent() {
       bio: user.bio ?? '',
       pronouns: user.pronouns ?? '',
       location: user.location ?? '',
-      education: user.education ?? '',
-      work: user.work ?? '',
     },
     onSubmitMeta,
     validators: {
@@ -144,8 +142,6 @@ function RouteComponent() {
             bio: value.bio,
             pronouns: value.pronouns,
             location: value.location,
-            work: value.work,
-            education: value.education,
             fetchOptions: {
               onSuccess: () => {
                 toast.success('User updated', {
@@ -424,68 +420,6 @@ function RouteComponent() {
                     />
                     <FieldDescription className="text-sm">
                       Where you're based (e.g. New York, USA)
-                    </FieldDescription>
-                    {isInvalid && (
-                      <FieldError errors={field.state.meta.errors} />
-                    )}
-                  </Field>
-                )
-              }}
-            />
-
-            <form.Field
-              name="work"
-              children={(field) => {
-                const isInvalid =
-                  field.state.meta.isTouched && !field.state.meta.isValid
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name} className="text-base">
-                      Work
-                    </FieldLabel>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="e.g. Software Engineer at Tech Corp"
-                      className="text-sm!"
-                      aria-invalid={isInvalid}
-                    />
-                    <FieldDescription className="text-sm">
-                      Your current company or role
-                    </FieldDescription>
-                    {isInvalid && (
-                      <FieldError errors={field.state.meta.errors} />
-                    )}
-                  </Field>
-                )
-              }}
-            />
-
-            <form.Field
-              name="education"
-              children={(field) => {
-                const isInvalid =
-                  field.state.meta.isTouched && !field.state.meta.isValid
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel htmlFor={field.name} className="text-base">
-                      Education
-                    </FieldLabel>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="e.g. Bachelor's in Computer Science"
-                      className="text-sm!"
-                      aria-invalid={isInvalid}
-                    />
-                    <FieldDescription className="text-sm">
-                      Your educational background
                     </FieldDescription>
                     {isInvalid && (
                       <FieldError errors={field.state.meta.errors} />

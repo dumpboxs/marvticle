@@ -116,18 +116,6 @@ export const auth = betterAuth({
         input: true,
         fieldName: 'location',
       },
-      education: {
-        type: 'string',
-        required: false,
-        input: true,
-        fieldName: 'education',
-      },
-      work: {
-        type: 'string',
-        required: false,
-        input: true,
-        fieldName: 'work',
-      },
       verified: {
         type: 'boolean',
         required: true,

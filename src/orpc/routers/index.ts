@@ -5,12 +5,14 @@ import {
 } from '@orpc/server'
 
 import { orpcBase } from '#/orpc'
+import { commentsRouter } from '#/orpc/routers/comments.router'
 import { threadsRouter } from '#/orpc/routers/threads.routers'
 import { getMeHandler, usersRouter } from '#/orpc/routers/users.router'
 
 export const orpcRouters = orpcBase.router({
   users: usersRouter,
   threads: threadsRouter,
+  comments: commentsRouter,
   me: getMeHandler,
 })
 

@@ -17,12 +17,22 @@ import {
 } from '#/components/ui/card'
 import { Separator } from '#/components/ui/separator'
 import { UserAvatar } from '#/components/user-avatar'
+import type { VoteDirectionType } from '#/db/schemas'
+import { useToggleVoteMutation } from '#/features/votes/hooks/use-votes'
 import { parseMarkdownToWords } from '#/lib/parse-markdown'
+import { cn } from '#/lib/utils'
 import type { RouterOutputs } from '#/orpc/routers'
 
 type ThreadCardProps = RouterOutputs['threads']['getMany']['items'][number]
 
 export const ThreadCard = (thread: ThreadCardProps) => {
+  const voteMutation = useToggleVoteMutation()
+
+  const isPendingVote = voteMutation.isPending
+  const handleVote = (direction: VoteDirectionType) => {
+    voteMutation.mutate({ slug: thread.slug, direction })
+  }
+
   return (
     <Card className="gap-0 p-0 ring-0">
       <CardHeader className="gap-2 p-0! [.border-b]:pb-0!">
@@ -70,14 +80,34 @@ export const ThreadCard = (thread: ThreadCardProps) => {
 
       <CardFooter className="w-full gap-4 border-0 p-0!">
         <div className="grid grid-cols-[1fr_auto_1fr] grid-rows-1 items-center gap-2">
-          <Button size="icon-sm" variant="ghost">
-            <ArrowBigUpIcon className="size-4" />
+          <Button
+            type="button"
+            disabled={isPendingVote}
+            onClick={() => handleVote('UPVOTE')}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <ArrowBigUpIcon
+              className={cn('size-4 transition-all duration-500 ease-in-out', {
+                'fill-primary': thread.userVote === 'UPVOTE',
+              })}
+            />
           </Button>
 
-          <span>0</span>
+          <span>{thread.voteScore}</span>
 
-          <Button size="icon-sm" variant="ghost">
-            <ArrowBigDownIcon className="size-4" />
+          <Button
+            type="button"
+            disabled={isPendingVote}
+            onClick={() => handleVote('DOWNVOTE')}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <ArrowBigDownIcon
+              className={cn('size-4 transition-all duration-500 ease-in-out', {
+                'fill-primary': thread.userVote === 'DOWNVOTE',
+              })}
+            />
           </Button>
         </div>
 

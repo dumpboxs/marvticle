@@ -23,6 +23,7 @@ export const threadSelectSchema = createSelectSchema(threadsTable)
       name: true,
       username: true,
       image: true,
+      verified: true,
     }),
   })
 

@@ -118,6 +118,7 @@ export const auth = betterAuth({
       },
       verified: {
         type: 'boolean',
+        defaultValue: false,
         required: true,
         input: false,
       },

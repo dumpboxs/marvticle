@@ -21,7 +21,7 @@ export const ProfileNavigation = ({ username }: { username: string }) => {
 
   return (
     <div className="my-4 px-4">
-      <div className="mb-2 flex items-center justify-start gap-2">
+      <div className="mb-4 flex items-center justify-start gap-2">
         {profileLinks.map((link) => {
           const isActive = matchRoute({ to: link.to, params: link.params })
           return (

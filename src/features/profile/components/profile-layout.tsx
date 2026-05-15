@@ -1,6 +1,6 @@
 import { getRouteApi, Link } from '@tanstack/react-router'
 
-import { type ComponentProps } from 'react'
+import type { ComponentProps } from 'react'
 
 import { DotsThreeVerticalIcon } from '@phosphor-icons/react'
 import { formatDate } from 'date-fns'
@@ -88,7 +88,9 @@ export const ProfileLayout = ({ className, children, ...props }: Props) => {
         <div className="-space-y-1.5">
           <h1 className="font-heading text-2xl font-bold">
             {user.name}
-            <VerifiedIcon className="ml-1 inline size-5 fill-sky-500 text-sidebar" />
+            {!!user.verified && (
+              <VerifiedIcon className="ml-1 inline size-5 fill-sky-500 text-sidebar" />
+            )}
           </h1>
           <div className="flex items-center gap-1.5 text-base text-muted-foreground">
             <span>@{user.username}</span>

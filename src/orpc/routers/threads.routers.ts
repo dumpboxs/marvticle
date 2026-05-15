@@ -4,10 +4,8 @@ import { nanoid } from 'nanoid'
 
 import { userTable } from '#/db/schemas'
 import { threadsTable } from '#/db/schemas/threads'
-import {
-  threadPaginationCursorSchema,
-  type ThreadPaginationCursor,
-} from '#/features/threads/schemas/thread.schema'
+import { threadPaginationCursorSchema } from '#/features/threads/schemas/thread.schema'
+import type { ThreadPaginationCursor } from '#/features/threads/schemas/thread.schema'
 import { orpcBase } from '#/orpc'
 import { orpcRequireAuthMiddleware } from '#/orpc/middlewares'
 
@@ -48,6 +46,7 @@ const authorSelect = {
   name: userTable.name,
   username: userTable.username,
   image: userTable.image,
+  verified: userTable.verified,
 }
 
 const getManyThreadHandler = orpcBase.threads.getMany.handler(

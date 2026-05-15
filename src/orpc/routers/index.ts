@@ -1,7 +1,7 @@
-import {
-  type InferRouterInputs,
-  type InferRouterOutputs,
-  type RouterClient,
+import type {
+  InferRouterInputs,
+  InferRouterOutputs,
+  RouterClient,
 } from '@orpc/server'
 
 import { orpcBase } from '#/orpc'

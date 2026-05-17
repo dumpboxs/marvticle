@@ -1,21 +1,10 @@
-import {
-  type CSSProperties,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 
-import {
-  createCodeBlockConfig,
-  createCodeBlockSpec,
-  type CodeBlockOptions,
-} from '@blocknote/core'
-import {
-  createReactBlockSpec,
-  type ReactCustomBlockRenderProps,
-} from '@blocknote/react'
+import { createCodeBlockConfig, createCodeBlockSpec } from '@blocknote/core'
+import type { CodeBlockOptions } from '@blocknote/core'
+import { createReactBlockSpec } from '@blocknote/react'
+import type { ReactCustomBlockRenderProps } from '@blocknote/react'
 import { CheckIcon, CopyIcon, TrashIcon } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
@@ -193,30 +182,35 @@ function CustomCodeBlock({ block, editor, contentRef }: CodeBlockRenderProps) {
         className="flex h-11 items-center justify-between gap-4 border-b px-4"
         contentEditable={false}
       >
-        <Select
-          value={selectedLanguage}
-          onValueChange={handleLanguageChange}
-          disabled={!canEdit}
-        >
-          <SelectTrigger
-            aria-label="Code block language"
-            size="sm"
-            className="h-8 w-44 rounded-none border-none! bg-transparent! px-0 text-xs text-primary"
-          >
-            <SelectValue>
-              <span className="font-medium text-primary">
-                {getLanguageName(language)}
-              </span>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent align="start" className="h-64 w-52 min-w-52">
-            {languageOptions.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {canEdit ? (
+          <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
+            <SelectTrigger
+              aria-label="Code block language"
+              size="sm"
+              className="h-8 w-44 rounded-none border-none! bg-transparent! px-0 text-xs text-primary"
+            >
+              <SelectValue>
+                <span className="font-medium text-primary">
+                  {getLanguageName(language)}
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent
+              position="item-aligned"
+              className="h-64 w-52 min-w-52"
+            >
+              {languageOptions.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="text-sm font-medium text-primary">
+            {getLanguageName(language)}
+          </span>
+        )}
 
         <div className="flex shrink-0 items-center gap-1">
           <Button
@@ -234,19 +228,20 @@ function CustomCodeBlock({ block, editor, contentRef }: CodeBlockRenderProps) {
             )}
             {copied ? 'Copied' : 'Copy'}
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="size-8 text-primary"
-            contentEditable={false}
-            aria-label="Delete code block"
-            title="Delete code block"
-            disabled={!canEdit}
-            onClick={handleDelete}
-          >
-            <TrashIcon className="size-4" />
-          </Button>
+          {!!canEdit && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="size-8 text-primary"
+              contentEditable={false}
+              aria-label="Delete code block"
+              title="Delete code block"
+              onClick={handleDelete}
+            >
+              <TrashIcon className="size-4" />
+            </Button>
+          )}
         </div>
       </div>
 

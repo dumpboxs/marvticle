@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+
 import { DotsThreeIcon } from '@phosphor-icons/react'
 import { formatDistanceToNowStrict } from 'date-fns'
 import {
@@ -70,12 +72,30 @@ export const ThreadCard = (thread: ThreadCardProps) => {
         </div>
 
         <CardTitle className="line-clamp-2 text-lg font-semibold text-balance">
-          {thread.title}
+          <Link
+            to={'/$username/threads/$threadSlug'}
+            params={{
+              username: thread.author.username,
+              threadSlug: thread.slug,
+            }}
+            viewTransition
+          >
+            {thread.title}
+          </Link>
         </CardTitle>
       </CardHeader>
 
       <CardContent className="mb-4 line-clamp-2 p-0! text-base font-normal text-muted-foreground">
-        {parseMarkdownToWords(thread.content)}
+        <Link
+          to={'/$username/threads/$threadSlug'}
+          params={{
+            username: thread.author.username,
+            threadSlug: thread.slug,
+          }}
+          viewTransition
+        >
+          {parseMarkdownToWords(thread.content)}
+        </Link>
       </CardContent>
 
       <CardFooter className="w-full gap-4 border-0 p-0!">

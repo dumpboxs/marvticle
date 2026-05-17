@@ -26,6 +26,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as MainThreadsNewRouteImport } from './routes/_main/threads.new'
 import { Route as MainUsernameSettingsRouteImport } from './routes/_main/$username_.settings'
 import { Route as MainUsernameSettingsIndexRouteImport } from './routes/_main/$username_.settings.index'
+import { Route as MainUsernameThreadsThreadSlugRouteImport } from './routes/_main/$username_.threads.$threadSlug'
 import { Route as MainUsernameSettingsAccountRouteImport } from './routes/_main/$username_.settings.account'
 
 const MainRoute = MainRouteImport.update({
@@ -112,6 +113,12 @@ const MainUsernameSettingsIndexRoute =
     path: '/',
     getParentRoute: () => MainUsernameSettingsRoute,
   } as any)
+const MainUsernameThreadsThreadSlugRoute =
+  MainUsernameThreadsThreadSlugRouteImport.update({
+    id: '/$username_/threads/$threadSlug',
+    path: '/$username/threads/$threadSlug',
+    getParentRoute: () => MainRoute,
+  } as any)
 const MainUsernameSettingsAccountRoute =
   MainUsernameSettingsAccountRouteImport.update({
     id: '/account',
@@ -135,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
   '/$username/': typeof MainUsernameIndexRoute
   '/$username/settings/account': typeof MainUsernameSettingsAccountRoute
+  '/$username/threads/$threadSlug': typeof MainUsernameThreadsThreadSlugRoute
   '/$username/settings/': typeof MainUsernameSettingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -151,6 +159,7 @@ export interface FileRoutesByTo {
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
   '/$username': typeof MainUsernameIndexRoute
   '/$username/settings/account': typeof MainUsernameSettingsAccountRoute
+  '/$username/threads/$threadSlug': typeof MainUsernameThreadsThreadSlugRoute
   '/$username/settings': typeof MainUsernameSettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -172,6 +181,7 @@ export interface FileRoutesById {
   '/api/s3/cover-image': typeof ApiS3CoverImageRoute
   '/_main/$username/': typeof MainUsernameIndexRoute
   '/_main/$username_/settings/account': typeof MainUsernameSettingsAccountRoute
+  '/_main/$username_/threads/$threadSlug': typeof MainUsernameThreadsThreadSlugRoute
   '/_main/$username_/settings/': typeof MainUsernameSettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/api/s3/cover-image'
     | '/$username/'
     | '/$username/settings/account'
+    | '/$username/threads/$threadSlug'
     | '/$username/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/api/s3/cover-image'
     | '/$username'
     | '/$username/settings/account'
+    | '/$username/threads/$threadSlug'
     | '/$username/settings'
   id:
     | '__root__'
@@ -228,6 +240,7 @@ export interface FileRouteTypes {
     | '/api/s3/cover-image'
     | '/_main/$username/'
     | '/_main/$username_/settings/account'
+    | '/_main/$username_/threads/$threadSlug'
     | '/_main/$username_/settings/'
   fileRoutesById: FileRoutesById
 }
@@ -362,6 +375,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MainUsernameSettingsIndexRouteImport
       parentRoute: typeof MainUsernameSettingsRoute
     }
+    '/_main/$username_/threads/$threadSlug': {
+      id: '/_main/$username_/threads/$threadSlug'
+      path: '/$username/threads/$threadSlug'
+      fullPath: '/$username/threads/$threadSlug'
+      preLoaderRoute: typeof MainUsernameThreadsThreadSlugRouteImport
+      parentRoute: typeof MainRoute
+    }
     '/_main/$username_/settings/account': {
       id: '/_main/$username_/settings/account'
       path: '/account'
@@ -418,6 +438,7 @@ interface MainRouteChildren {
   MainIndexRoute: typeof MainIndexRoute
   MainUsernameSettingsRoute: typeof MainUsernameSettingsRouteWithChildren
   MainThreadsNewRoute: typeof MainThreadsNewRoute
+  MainUsernameThreadsThreadSlugRoute: typeof MainUsernameThreadsThreadSlugRoute
 }
 
 const MainRouteChildren: MainRouteChildren = {
@@ -425,6 +446,7 @@ const MainRouteChildren: MainRouteChildren = {
   MainIndexRoute: MainIndexRoute,
   MainUsernameSettingsRoute: MainUsernameSettingsRouteWithChildren,
   MainThreadsNewRoute: MainThreadsNewRoute,
+  MainUsernameThreadsThreadSlugRoute: MainUsernameThreadsThreadSlugRoute,
 }
 
 const MainRouteWithChildren = MainRoute._addFileChildren(MainRouteChildren)

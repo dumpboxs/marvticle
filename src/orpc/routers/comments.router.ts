@@ -1,8 +1,10 @@
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, countDistinct, eq, isNull } from 'drizzle-orm'
 
 import { userTable } from '#/db/schemas/auth'
 import { commentsTable } from '#/db/schemas/comments'
 import { threadsTable } from '#/db/schemas/threads'
+import { commentPaginationCursorSchema } from '#/features/comments/schemas/comment.schema'
+import type { CommentPaginationCursor } from '#/features/comments/schemas/comment.schema'
 import { orpcBase } from '#/orpc'
 import type { ORPCContext } from '#/orpc'
 import { orpcRequireAuthMiddleware } from '#/orpc/middlewares'
@@ -15,46 +17,36 @@ const commentSelect = {
   authorId: commentsTable.authorId,
   parentId: commentsTable.parentId,
   content: commentsTable.content,
+  depth: commentsTable.depth,
   createdAt: commentsTable.createdAt,
   updatedAt: commentsTable.updatedAt,
   deletedAt: commentsTable.deletedAt,
 }
 
 const authorSelect = {
+  id: userTable.id,
   name: userTable.name,
   username: userTable.username,
   image: userTable.image,
 }
 
-type CommentRow = {
-  id: string
-  threadId: string
-  authorId: string
-  parentId: string | null
-  content: string
-  createdAt: Date
-  updatedAt: Date
-  deletedAt: Date | null
-  author: {
-    name: string
-    username: string
-    image: string | null
-  }
+const encodeCursor = (cursor: CommentPaginationCursor): string => {
+  return Buffer.from(JSON.stringify(cursor), 'utf-8').toString('base64url')
 }
 
-const mapCommentRow = (row: CommentRow) => {
-  const isDeleted = row.deletedAt !== null
+const decodeCursor = (cursor: string): CommentPaginationCursor | null => {
+  try {
+    const value = JSON.parse(
+      Buffer.from(cursor, 'base64url').toString('utf-8')
+    ) as unknown
 
-  return {
-    id: row.id,
-    threadId: row.threadId,
-    parentId: row.parentId,
-    content: isDeleted ? null : row.content,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    deletedAt: row.deletedAt,
-    isDeleted,
-    author: row.author,
+    const result = commentPaginationCursorSchema.safeParse(value)
+
+    if (!result.success) return null
+
+    return result.data
+  } catch {
+    return null
   }
 }
 
@@ -75,84 +67,188 @@ const getCommentById = async ({
     .where(eq(commentsTable.id, id))
     .limit(1)
 
-  return comment
+  if (!comment) return undefined
+
+  return {
+    ...comment,
+    isDeleted: comment.deletedAt !== null,
+  }
 }
 
 const getByThreadCommentsHandler = orpcBase.comments.getByThread.handler(
   async ({ context, errors, input }) => {
+    const cursor = input.cursor ? decodeCursor(input.cursor) : null
+
+    if (input.cursor && !cursor) {
+      throw errors.BAD_REQUEST({ message: 'Invalid thread cursor' })
+    }
+
     const [thread] = await context.db
       .select({ id: threadsTable.id })
       .from(threadsTable)
-      .where(eq(threadsTable.id, input.threadId))
+      .where(eq(threadsTable.slug, input.threadSlug))
       .limit(1)
 
     if (!thread) {
       throw errors.NOT_FOUND({ message: 'Thread not found' })
     }
 
-    const comments = await context.db
-      .select({
-        ...commentSelect,
-        author: authorSelect,
-      })
+    const [count] = await context.db
+      .select({ count: countDistinct(commentsTable.id) })
       .from(commentsTable)
-      .innerJoin(userTable, eq(commentsTable.authorId, userTable.id))
-      .where(eq(commentsTable.threadId, input.threadId))
-      .orderBy(asc(commentsTable.createdAt), asc(commentsTable.id))
+      .where(eq(commentsTable.threadId, thread.id))
+
+    if (!count) {
+      throw errors.NOT_FOUND({ message: 'No comments found for this thread' })
+    }
+
+    const comments = await context.db.query.commentsTable.findMany({
+      where: and(
+        eq(commentsTable.threadId, thread.id),
+        isNull(commentsTable.parentId)
+      ),
+      orderBy: [asc(commentsTable.createdAt), asc(commentsTable.id)],
+      limit: input.limit,
+      with: {
+        author: {
+          columns: {
+            id: true,
+            name: true,
+            username: true,
+            image: true,
+          },
+        },
+        replies: {
+          limit: input.includeReplies ? 3 : 0,
+          with: {
+            author: {
+              columns: {
+                id: true,
+                name: true,
+                username: true,
+                image: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    let nextCursor: string | null = null
+    const hasMore = comments.length > input.limit
+    const rawItems = hasMore ? comments.slice(0, input.limit) : comments
+    const lastItem = rawItems.at(-1)
+
+    if (hasMore && lastItem) {
+      nextCursor = encodeCursor({
+        id: lastItem.id,
+        createdAt: lastItem.createdAt,
+      })
+    }
+
+    const items = rawItems.map(({ replies, ...comment }) => ({
+      ...comment,
+      isDeleted: comment.deletedAt !== null,
+      childComments: replies.map(({ ...reply }) => ({
+        ...reply,
+        isDeleted: reply.deletedAt !== null,
+      })),
+    }))
 
     return {
-      items: comments.map(mapCommentRow),
-      totalCount: comments.length,
+      items,
+      nextCursor,
+      totalCount: count.count,
     }
   }
 )
 
-const createCommentHandler = orpcBase
+const getRepliesCommentsHandler = orpcBase.comments.getReplies.handler(
+  async ({ context, errors, input }) => {
+    const cursor = input.cursor ? decodeCursor(input.cursor) : null
+
+    if (input.cursor && !cursor) {
+      throw errors.BAD_REQUEST({ message: 'Invalid parent comment cursor' })
+    }
+
+    const [parentComment] = await context.db
+      .select({ id: commentsTable.id })
+      .from(commentsTable)
+      .where(eq(commentsTable.id, input.parentId))
+      .limit(1)
+
+    if (!parentComment) {
+      throw errors.NOT_FOUND({ message: 'Parent comment not found' })
+    }
+
+    const [count] = await context.db
+      .select({ count: countDistinct(commentsTable.id) })
+      .from(commentsTable)
+      .where(eq(commentsTable.parentId, parentComment.id))
+
+    if (!count) {
+      throw errors.NOT_FOUND({ message: 'No replies found for this comment' })
+    }
+
+    const comments = await context.db.query.commentsTable.findMany({
+      where: and(eq(commentsTable.parentId, parentComment.id)),
+      orderBy: [asc(commentsTable.createdAt), asc(commentsTable.id)],
+      limit: input.limit,
+      with: {
+        author: {
+          columns: {
+            id: true,
+            name: true,
+            username: true,
+            image: true,
+          },
+        },
+      },
+    })
+
+    let nextCursor: string | null = null
+    const hasMore = comments.length > input.limit
+    const rawItems = hasMore ? comments.slice(0, input.limit) : comments
+    const lastItem = rawItems.at(-1)
+
+    if (hasMore && lastItem) {
+      nextCursor = encodeCursor({
+        id: lastItem.id,
+        createdAt: lastItem.createdAt,
+      })
+    }
+
+    const items = rawItems.map((comment) => ({
+      ...comment,
+      isDeleted: comment.deletedAt !== null,
+      childComments: [],
+    }))
+
+    return {
+      items,
+      nextCursor,
+      totalCount: count.count,
+    }
+  }
+)
+
+const createCommentRootHandler = orpcBase
   .use(orpcRequireAuthMiddleware)
-  .comments.create.handler(async ({ context, errors, input }) => {
+  .comments.createRoot.handler(async ({ context, errors, input }) => {
     const [thread] = await context.db
       .select({ id: threadsTable.id })
       .from(threadsTable)
-      .where(eq(threadsTable.id, input.threadId))
+      .where(eq(threadsTable.slug, input.threadSlug))
       .limit(1)
 
     if (!thread) {
       throw errors.NOT_FOUND({ message: 'Thread not found' })
-    }
-
-    if (input.parentId) {
-      const [parentComment] = await context.db
-        .select({
-          id: commentsTable.id,
-          threadId: commentsTable.threadId,
-          deletedAt: commentsTable.deletedAt,
-        })
-        .from(commentsTable)
-        .where(eq(commentsTable.id, input.parentId))
-        .limit(1)
-
-      if (!parentComment) {
-        throw errors.NOT_FOUND({ message: 'Parent comment not found' })
-      }
-
-      if (parentComment.threadId !== input.threadId) {
-        throw errors.BAD_REQUEST({
-          message: 'Parent comment belongs to a different thread',
-        })
-      }
-
-      if (parentComment.deletedAt) {
-        throw errors.BAD_REQUEST({
-          message: 'Cannot reply to a deleted comment',
-        })
-      }
     }
 
     const [newComment] = await context.db
       .insert(commentsTable)
       .values({
-        threadId: input.threadId,
-        parentId: input.parentId ?? null,
+        threadId: thread.id,
         content: input.content,
         authorId: context.auth.user.id,
       })
@@ -172,7 +268,75 @@ const createCommentHandler = orpcBase
       })
     }
 
-    return mapCommentRow(comment)
+    return comment
+  })
+
+const createCommentReplyHandler = orpcBase
+  .use(orpcRequireAuthMiddleware)
+  .comments.createReply.handler(async ({ context, errors, input }) => {
+    const [parentComment] = await context.db
+      .select({
+        id: commentsTable.id,
+        threadId: commentsTable.threadId,
+        depth: commentsTable.depth,
+        deletedAt: commentsTable.deletedAt,
+      })
+      .from(commentsTable)
+      .where(eq(commentsTable.id, input.parentId))
+      .limit(1)
+
+    if (!parentComment) {
+      throw errors.NOT_FOUND({ message: 'Parent comment not found' })
+    }
+
+    const [thread] = await context.db
+      .select({ id: threadsTable.id })
+      .from(threadsTable)
+      .where(eq(threadsTable.id, parentComment.threadId))
+      .limit(1)
+
+    if (!thread) {
+      throw errors.NOT_FOUND({ message: 'Thread not found' })
+    }
+
+    if (parentComment.threadId !== thread.id) {
+      throw errors.BAD_REQUEST({
+        message: 'Parent comment belongs to a different thread',
+      })
+    }
+
+    if (parentComment.deletedAt) {
+      throw errors.BAD_REQUEST({
+        message: 'Cannot reply to a deleted comment',
+      })
+    }
+
+    const [newComment] = await context.db
+      .insert(commentsTable)
+      .values({
+        threadId: thread.id,
+        parentId: input.parentId,
+        depth: parentComment.depth + 1,
+        content: input.content,
+        authorId: context.auth.user.id,
+      })
+      .returning({ id: commentsTable.id })
+
+    if (!newComment) {
+      throw errors.INTERNAL_SERVER_ERROR({
+        message: 'Failed to create comment',
+      })
+    }
+
+    const comment = await getCommentById({ context, id: newComment.id })
+
+    if (!comment) {
+      throw errors.INTERNAL_SERVER_ERROR({
+        message: 'Failed to load created comment',
+      })
+    }
+
+    return comment
   })
 
 const updateCommentHandler = orpcBase
@@ -209,7 +373,7 @@ const updateCommentHandler = orpcBase
       })
     }
 
-    return mapCommentRow(updatedComment)
+    return updatedComment
   })
 
 const deleteCommentHandler = orpcBase
@@ -243,12 +407,14 @@ const deleteCommentHandler = orpcBase
       })
     }
 
-    return mapCommentRow(deletedComment)
+    return deletedComment
   })
 
 export const commentsRouter = {
   getByThread: getByThreadCommentsHandler,
-  create: createCommentHandler,
+  getReplies: getRepliesCommentsHandler,
+  createRoot: createCommentRootHandler,
+  createReply: createCommentReplyHandler,
   update: updateCommentHandler,
   delete: deleteCommentHandler,
 }

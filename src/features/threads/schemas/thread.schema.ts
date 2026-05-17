@@ -21,6 +21,7 @@ export const threadSelectSchema = createSelectSchema(threadsTable)
   })
   .extend({
     author: userSelectSchema.pick({
+      id: true,
       name: true,
       username: true,
       image: true,

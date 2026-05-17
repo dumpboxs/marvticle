@@ -1,12 +1,13 @@
 import { sql } from 'drizzle-orm'
 import {
-  type AnyPgColumn,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
 import { userTable } from '#/db/schemas/auth'
 import { threadsTable } from '#/db/schemas/threads'
@@ -30,6 +31,7 @@ export const commentsTable = pgTable(
       }
     ),
     content: text('content').notNull(),
+    depth: integer('depth').notNull().default(0),
     deletedAt: timestamp('deleted_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')

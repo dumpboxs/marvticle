@@ -45,6 +45,7 @@ const threadSelect = {
 }
 
 const authorSelect = {
+  id: userTable.id,
   name: userTable.name,
   username: userTable.username,
   image: userTable.image,
@@ -68,7 +69,7 @@ const getManyThreadHandler = orpcBase.threads.getMany.handler(
       count(case when ${votesTable.direction} = 'DOWNVOTE' then 1 end)
     `.as('vote_score'),
         userVote: sql<ToggleVoteOutput['userVote']>`
-      max(case when ${votesTable.userId} = ${context.auth?.user.id}
+      max(case when ${votesTable.userId} = ${context.auth?.user.id ?? null}
       then ${votesTable.direction} end)
     `.as('user_vote'),
       })
@@ -120,7 +121,7 @@ const getOneThreadBySlugHandler = orpcBase.threads.getOne.handler(
       count(case when ${votesTable.direction} = 'DOWNVOTE' then 1 end)
     `.as('vote_score'),
         userVote: sql<ToggleVoteOutput['userVote']>`
-      max(case when ${votesTable.userId} = ${context.auth?.user.id}
+      max(case when ${votesTable.userId} = ${context.auth?.user.id ?? null}
       then ${votesTable.direction} end)
     `.as('user_vote'),
       })

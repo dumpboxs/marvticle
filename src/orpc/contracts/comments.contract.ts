@@ -1,16 +1,18 @@
 import {
-  commentCreateSchema,
+  commentCreateRootSchema,
+  commentCreateReplySchema,
   commentDeleteSchema,
   commentSelectSchema,
   commentUpdateSchema,
-  getThreadCommentsSchema,
   threadCommentsSchema,
+  getCommentRepliesSchema,
+  getThreadCommentsSchema,
 } from '#/features/comments/schemas/comment.schema'
 import { orpcBaseContract as base } from '#/orpc/contracts/base.contract'
 
 const getThreadCommentsContract = base
   .route({
-    path: '/threads/{threadId}/comments',
+    path: '/threads/{threadSlug}/comments',
     method: 'GET',
     summary: 'Get thread comments',
     description: 'Get threaded comments for a thread.',
@@ -22,18 +24,46 @@ const getThreadCommentsContract = base
   .input(getThreadCommentsSchema)
   .output(threadCommentsSchema)
 
-const createCommentContract = base
+const getCommentRepliesContract = base
   .route({
-    path: '/threads/{threadId}/comments',
+    path: '/comments/{parentId}/replies',
+    method: 'GET',
+    summary: 'Get comment replies',
+    description: 'Get replies for a comment.',
+    tags: ['Comments'],
+    operationId: 'getCommentReplies',
+    successStatus: 200,
+    successDescription: 'Comment replies retrieved successfully',
+  })
+  .input(getCommentRepliesSchema)
+  .output(threadCommentsSchema)
+
+const createCommentRootContract = base
+  .route({
+    path: '/threads/{threadSlug}/comments',
     method: 'POST',
     summary: 'Create comment',
-    description: 'Create a comment or reply on a thread.',
+    description: 'Create a comment on a thread.',
     tags: ['Comments'],
-    operationId: 'createComment',
+    operationId: 'createCommentRoot',
     successStatus: 200,
     successDescription: 'Comment created successfully',
   })
-  .input(commentCreateSchema)
+  .input(commentCreateRootSchema)
+  .output(commentSelectSchema)
+
+const createCommentReplyContract = base
+  .route({
+    path: '/comments/{parentId}/replies',
+    method: 'POST',
+    summary: 'Create comment reply',
+    description: 'Create a reply to an existing comment.',
+    tags: ['Comments'],
+    operationId: 'createCommentReply',
+    successStatus: 200,
+    successDescription: 'Comment reply created successfully',
+  })
+  .input(commentCreateReplySchema)
   .output(commentSelectSchema)
 
 const updateCommentContract = base
@@ -66,7 +96,9 @@ const deleteCommentContract = base
 
 export const commentsContract = {
   getByThread: getThreadCommentsContract,
-  create: createCommentContract,
+  getReplies: getCommentRepliesContract,
+  createRoot: createCommentRootContract,
+  createReply: createCommentReplyContract,
   update: updateCommentContract,
   delete: deleteCommentContract,
 }

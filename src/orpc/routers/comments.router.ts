@@ -130,6 +130,43 @@ const queryComments = async ({
   return rows
 }
 
+const mapToCommentList = (
+  rows: Awaited<ReturnType<typeof queryComments>>,
+  repliesMap: Record<string, ListCommentsOutput>
+) => {
+  return rows.map((comment) => ({
+    ...comment,
+    isDeleted: comment.deletedAt !== null,
+    childComments: repliesMap[comment.id]?.items ?? [],
+    nextCursor: repliesMap[comment.id]?.nextCursor ?? null,
+  }))
+}
+
+const buildCommentsListResponse = (
+  rows: Awaited<ReturnType<typeof queryComments>>,
+  limit: number,
+  sortBy: SortByComments,
+  repliesMap: Record<string, ListCommentsOutput>
+): ListCommentsOutput => {
+  let nextCursor: string | null = null
+  const hasMore = rows.length > limit
+  const rawItems = hasMore ? rows.slice(0, limit) : rows
+  const lastItem = rawItems.at(-1)
+
+  if (hasMore && lastItem) {
+    nextCursor = encodeCursor(
+      sortBy === 'top'
+        ? { mode: 'top', id: lastItem.id, points: lastItem.points }
+        : { mode: 'latest', id: lastItem.id, createdAt: lastItem.createdAt }
+    )
+  }
+
+  return {
+    items: mapToCommentList(rawItems, repliesMap),
+    nextCursor,
+  }
+}
+
 const listCommentsThreadHandler = orpcBase.comments.list.handler(
   async ({ context, errors, input }) => {
     const { db } = context
@@ -153,21 +190,11 @@ const listCommentsThreadHandler = orpcBase.comments.list.handler(
       limit,
     })
 
-    let nextCursor: string | null = null
-    const hasMore = rows.length > limit
-    const rawItems = hasMore ? rows.slice(0, limit) : rows
-    const lastItem = rawItems.at(-1)
-
-    if (hasMore && lastItem) {
-      nextCursor = encodeCursor(
-        sortBy === 'top'
-          ? { mode: 'top', id: lastItem.id, points: lastItem.points }
-          : { mode: 'latest', id: lastItem.id, createdAt: lastItem.createdAt }
-      )
-    }
-
     const repliesMap: Record<string, ListCommentsOutput> = {}
-    if (includeReplies && rawItems.length > 0) {
+
+    if (includeReplies && rows.length > 0) {
+      const rawItems = rows.length > limit ? rows.slice(0, limit) : rows
+
       await Promise.all(
         rawItems.map(async (comment) => {
           const replies = await queryComments({
@@ -178,45 +205,17 @@ const listCommentsThreadHandler = orpcBase.comments.list.handler(
             limit: 2,
           })
 
-          let nextCursorReplies: string | null = null
-          const hasMoreReplies = replies.length > 2
-          const rawReplies = hasMoreReplies ? replies.slice(0, 2) : replies
-          const lastReply = rawReplies.at(-1)
-
-          if (hasMoreReplies && lastReply) {
-            nextCursorReplies = encodeCursor(
-              sortBy === 'top'
-                ? { mode: 'top', id: lastReply.id, points: lastReply.points }
-                : {
-                    mode: 'latest',
-                    id: lastReply.id,
-                    createdAt: lastReply.createdAt,
-                  }
-            )
-          }
-
-          repliesMap[comment.id] = {
-            items: rawReplies.map((r) => ({
-              ...r,
-              isDeleted: r.deletedAt !== null,
-            })),
-            nextCursor: nextCursorReplies,
-          }
+          repliesMap[comment.id] = buildCommentsListResponse(
+            replies,
+            2,
+            sortBy,
+            {}
+          )
         })
       )
     }
 
-    const items = rawItems.map((comment) => ({
-      ...comment,
-      isDeleted: comment.deletedAt !== null,
-      childComments: repliesMap[comment.id]?.items ?? [],
-      nextCursor: repliesMap[comment.id]?.nextCursor ?? null,
-    }))
-
-    return {
-      items,
-      nextCursor,
-    }
+    return buildCommentsListResponse(rows, limit, sortBy, repliesMap)
   }
 )
 
@@ -243,29 +242,7 @@ const listCommentRepliesHandler = orpcBase.comments.listReplies.handler(
       limit,
     })
 
-    let nextCursor: string | null = null
-    const hasMore = comments.length > limit
-    const rawItems = hasMore ? comments.slice(0, limit) : comments
-    const lastItem = rawItems.at(-1)
-
-    if (hasMore && lastItem) {
-      nextCursor = encodeCursor(
-        sortBy === 'top'
-          ? { mode: 'top', id: lastItem.id, points: lastItem.points }
-          : { mode: 'latest', id: lastItem.id, createdAt: lastItem.createdAt }
-      )
-    }
-
-    const items = rawItems.map((comment) => ({
-      ...comment,
-      isDeleted: comment.deletedAt !== null,
-      childComments: [],
-    }))
-
-    return {
-      items,
-      nextCursor,
-    }
+    return buildCommentsListResponse(comments, limit, sortBy, {})
   }
 )
 

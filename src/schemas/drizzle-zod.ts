@@ -28,8 +28,9 @@ export const feedThreadSchema = z.enum(['latest', 'discover'])
 export const sortThreadSchema = z.enum(['top'])
 export const periodThreadSchema = z.enum(['week', 'month', 'year', 'all'])
 
-export const pointsSchema = z.coerce.number().min(0)
+export const pointsSchema = z.coerce.number()
 export const commentsCountSchema = z.coerce.number().min(0)
+export const voteActionSchema = z.enum(['VOTED', 'UNVOTED', 'CHANGED'])
 export const voteDirectionSchema = z.enum([...voteDirectionEnum.enumValues])
 export const voteDirectionNullableSchema = voteDirectionSchema
   .nullable()
@@ -57,5 +58,6 @@ export const cursorPayloadSchema = z.discriminatedUnion('mode', [
   discoverCursorSchema,
 ])
 
+export type VoteAction = z.infer<typeof voteActionSchema>
 export type VoteDirectionNullable = z.infer<typeof voteDirectionNullableSchema>
 export type CursorPayload = z.infer<typeof cursorPayloadSchema>

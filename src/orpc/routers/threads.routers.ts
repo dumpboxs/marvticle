@@ -7,7 +7,7 @@ import { threadsTable } from '#/db/schemas/threads'
 import { decodeCursor, encodeCursor } from '#/lib/cursor'
 import { orpcBase } from '#/orpc'
 import { authenticated } from '#/orpc/middlewares'
-import type { VoteDirectionNullable } from '#/schemas/drizzle-zod'
+import type { VoteAction, VoteDirectionNullable } from '#/schemas/drizzle-zod'
 
 const generateSlug = (title: string): string => {
   return `${limax(title)}-${nanoid(9)}`
@@ -230,105 +230,198 @@ const createThreadHandler = orpcBase
     }
   })
 
-// const toggleVoteHandler = orpcBase
-//   .use(orpcRequireAuthMiddleware)
-//   .threads.vote.handler(async ({ context, errors, input }) => {
-//     const [existingThread] = await context.db
-//       .select({
-//         id: threadsTable.id,
-//       })
-//       .from(threadsTable)
-//       .where(eq(threadsTable.slug, input.slug))
+const updateThreadHandler = orpcBase
+  .use(authenticated)
+  .threads.update.handler(async ({ context, errors, input }) => {
+    const { db, auth } = context
+    const { slug, title, content } = input
 
-//     if (!existingThread) {
-//       throw errors.NOT_FOUND({ message: 'Thread not found' })
-//     }
+    const [thread] = await db
+      .select({ ...threadSelect, author: authorSelect })
+      .from(threadsTable)
+      .innerJoin(userTable, eq(threadsTable.authorId, userTable.id))
+      .where(eq(threadsTable.slug, slug))
 
-//     const vote = await db.transaction(async (tx) => {
-//       const [existingVote] = await tx
-//         .select()
-//         .from(votesTable)
-//         .where(
-//           and(
-//             eq(votesTable.userId, context.auth.user.id),
-//             eq(votesTable.threadId, existingThread.id)
-//           )
-//         )
-//         .limit(1)
+    if (!thread) {
+      throw errors.NOT_FOUND({ message: 'Thread not found' })
+    }
 
-//       const currentVote = existingVote
+    if (thread.author.id !== auth.user.id) {
+      throw errors.FORBIDDEN({
+        message: 'You are not the author of this thread',
+      })
+    }
 
-//       if (!currentVote) {
-//         await tx.insert(votesTable).values({
-//           userId: context.auth.user.id,
-//           threadId: existingThread.id,
-//           direction: input.direction,
-//         })
+    const newSlug = title && title !== thread.title ? generateSlug(title) : slug
 
-//         return {
-//           action: 'VOTED',
-//           userVote: input.direction,
-//         }
-//       } else if (currentVote.direction === input.direction) {
-//         await tx
-//           .delete(votesTable)
-//           .where(
-//             and(
-//               eq(votesTable.userId, context.auth.user.id),
-//               eq(votesTable.threadId, existingThread.id)
-//             )
-//           )
+    const [updatedThread] = await db
+      .update(threadsTable)
+      .set({
+        slug: newSlug,
+        ...(title && title !== thread.title && { title }),
+        ...(content && content !== thread.content && { content }),
+        updatedAt: new Date(),
+      })
+      .where(eq(threadsTable.id, thread.id))
+      .returning({
+        ...threadSelect,
+        isVoted: sql<VoteDirectionNullable>`
+      max(case when ${votesThreadsTable.userId} = ${auth.user.id}
+      then ${votesThreadsTable.direction} end)
+    `.as('is_voted'),
+      })
 
-//         return {
-//           action: 'UNVOTED',
-//           userVote: null,
-//         }
-//       } else {
-//         await tx
-//           .update(votesTable)
-//           .set({
-//             direction: input.direction,
-//           })
-//           .where(
-//             and(
-//               eq(votesTable.userId, context.auth.user.id),
-//               eq(votesTable.threadId, existingThread.id)
-//             )
-//           )
+    if (!updatedThread) {
+      throw errors.INTERNAL_SERVER_ERROR({ message: 'Failed to update thread' })
+    }
 
-//         return {
-//           action: 'CHANGED',
-//           userVote: input.direction,
-//         }
-//       }
-//     })
+    return {
+      ...updatedThread,
+      author: {
+        id: auth.user.id,
+        name: auth.user.name,
+        username: auth.user.username,
+        image: auth.user.image,
+        verified: auth.user.verified,
+      },
+      isVoted: updatedThread.isVoted,
+    }
+  })
 
-//     const [countVotes] = await context.db
-//       .select({
-//         voteScore: sql<number>`
-//       count(case when ${votesTable.direction} = 'UPVOTE' then 1 end) -
-//       count(case when ${votesTable.direction} = 'DOWNVOTE' then 1 end)
-//     `.as('vote_score'),
-//       })
-//       .from(votesTable)
-//       .where(eq(votesTable.threadId, existingThread.id))
+const deleteThreadHandler = orpcBase
+  .use(authenticated)
+  .threads.delete.handler(async ({ context, errors, input }) => {
+    const { db, auth } = context
+    const { slug } = input
 
-//     if (!countVotes) {
-//       throw errors.INTERNAL_SERVER_ERROR({
-//         message: 'Failed to get total votes',
-//       })
-//     }
+    const [thread] = await db
+      .select({ ...threadSelect, author: authorSelect })
+      .from(threadsTable)
+      .innerJoin(userTable, eq(threadsTable.authorId, userTable.id))
+      .where(eq(threadsTable.slug, slug))
 
-//     return {
-//       action: vote.action,
-//       userVote: vote.userVote,
-//       voteScore: countVotes.voteScore,
-//     } as ToggleVoteOutput
-//   })
+    if (!thread) {
+      throw errors.NOT_FOUND({ message: 'Thread not found' })
+    }
+
+    if (thread.author.id !== auth.user.id) {
+      throw errors.UNAUTHORIZED({
+        message: 'You are not the author of this thread',
+      })
+    }
+
+    await db.delete(threadsTable).where(eq(threadsTable.id, thread.id))
+
+    return { success: true }
+  })
+
+const voteThreadHandler = orpcBase
+  .use(authenticated)
+  .threads.vote.handler(async ({ context, errors, input }) => {
+    const { db, auth } = context
+    const { direction, slug } = input
+
+    const vote = await db.transaction(async (tx) => {
+      const [thread] = await tx
+        .select({
+          id: threadsTable.id,
+        })
+        .from(threadsTable)
+        .where(eq(threadsTable.slug, slug))
+        .for('update')
+        .limit(1)
+
+      if (!thread) {
+        throw errors.NOT_FOUND({ message: 'Thread not found' })
+      }
+
+      const [existingVote] = await tx
+        .select({
+          direction: votesThreadsTable.direction,
+        })
+        .from(votesThreadsTable)
+        .where(
+          and(
+            eq(votesThreadsTable.userId, auth.user.id),
+            eq(votesThreadsTable.threadId, thread.id)
+          )
+        )
+        .limit(1)
+
+      let pointDelta: number
+      let action: VoteAction
+      let resultDirection: VoteDirectionNullable
+
+      if (!existingVote) {
+        await tx.insert(votesThreadsTable).values({
+          threadId: thread.id,
+          userId: auth.user.id,
+          direction,
+        })
+
+        pointDelta = direction === 'UPVOTE' ? 1 : -1
+        action = 'VOTED'
+        resultDirection = direction
+      } else if (existingVote.direction === direction) {
+        await tx
+          .delete(votesThreadsTable)
+          .where(
+            and(
+              eq(votesThreadsTable.userId, auth.user.id),
+              eq(votesThreadsTable.threadId, thread.id)
+            )
+          )
+
+        pointDelta = direction === 'UPVOTE' ? -1 : 1
+        action = 'UNVOTED'
+        resultDirection = null
+      } else {
+        await tx
+          .update(votesThreadsTable)
+          .set({
+            direction,
+          })
+          .where(
+            and(
+              eq(votesThreadsTable.userId, auth.user.id),
+              eq(votesThreadsTable.threadId, thread.id)
+            )
+          )
+
+        pointDelta = direction === 'UPVOTE' ? 2 : -2
+        action = 'CHANGED'
+        resultDirection = direction
+      }
+
+      const [updateThread] = await tx
+        .update(threadsTable)
+        .set({
+          points: sql`${threadsTable.points} + ${pointDelta}`,
+        })
+        .where(eq(threadsTable.id, thread.id))
+        .returning({ points: threadsTable.points })
+
+      if (!updateThread) {
+        throw errors.INTERNAL_SERVER_ERROR({
+          message: 'Failed to update thread',
+        })
+      }
+
+      return {
+        action,
+        userVote: resultDirection,
+        newPoints: updateThread.points,
+      }
+    })
+
+    return vote
+  })
 
 export const threadsRouter = {
   list: listThreadsHandler,
   getOne: getOneThreadHandler,
   create: createThreadHandler,
-  // vote: toggleVoteHandler,
+  update: updateThreadHandler,
+  delete: deleteThreadHandler,
+  vote: voteThreadHandler,
 }

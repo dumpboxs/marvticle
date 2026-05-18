@@ -6,6 +6,7 @@ import {
   commentsCountSchema,
   createInsertSchema,
   createSelectSchema,
+  createUpdateSchema,
   feedThreadSchema,
   limitThreadsSchema,
   periodThreadSchema,
@@ -55,6 +56,14 @@ export const getOneThreadInputSchema = threadOutputSchema.pick({
   slug: true,
 })
 
+export const deleteThreadInputSchema = threadOutputSchema.pick({
+  slug: true,
+})
+
+export const deleteThreadOutputSchema = z.object({
+  success: z.boolean(),
+})
+
 export const threadInsertSchema = createInsertSchema(threadsTable, {
   title: (s) =>
     s
@@ -65,3 +74,19 @@ export const threadInsertSchema = createInsertSchema(threadsTable, {
   title: true,
   content: true,
 })
+
+export const threadUpdateInputSchema = createUpdateSchema(threadsTable, {
+  title: (s) =>
+    s
+      .nonempty({ error: 'Title is required' })
+      .max(255, { message: 'Title must be at most 255 characters long' }),
+  content: (s) => s.nonempty({ error: 'Content is required' }),
+})
+  .pick({
+    slug: true,
+    title: true,
+    content: true,
+  })
+  .extend({
+    slug: z.string().min(1, { message: 'Slug is required' }),
+  })

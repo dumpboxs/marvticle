@@ -1,9 +1,10 @@
-import { eq, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, lt, or, sql } from 'drizzle-orm'
 import limax from 'limax'
 import { nanoid } from 'nanoid'
 
 import { userTable, votesThreadsTable } from '#/db/schemas'
 import { threadsTable } from '#/db/schemas/threads'
+import { decodeCursor, encodeCursor } from '#/lib/cursor'
 import { orpcBase } from '#/orpc'
 import { authenticated } from '#/orpc/middlewares'
 import type { VoteDirectionNullable } from '#/schemas/drizzle-zod'
@@ -12,25 +13,28 @@ const generateSlug = (title: string): string => {
   return `${limax(title)}-${nanoid(9)}`
 }
 
-// const encodeCursor = (cursor: ThreadPaginationCursor): string => {
-//   return Buffer.from(JSON.stringify(cursor), 'utf-8').toString('base64url')
-// }
+const GRAVITY = 1.5
+const DISCOVER_WINDOW_DAYS = 30
 
-// const decodeCursor = (cursor: string): ThreadPaginationCursor | null => {
-//   try {
-//     const value = JSON.parse(
-//       Buffer.from(cursor, 'base64url').toString('utf-8')
-//     ) as unknown
+const trendingScoreExpr = sql<number>`
+  ${threadsTable.points}::float /
+  POWER(
+    EXTRACT(EPOCH FROM (NOW() - ${threadsTable.createdAt})) / 3600.0 + 2,
+    ${GRAVITY}
+  )
+`
 
-//     const result = threadPaginationCursorSchema.safeParse(value)
+const getPeriodSince = (period: string): Date | null => {
+  const now = new Date()
+  const map: Record<string, Date | null> = {
+    week: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+    month: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+    year: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000),
+    all: null,
+  }
 
-//     if (!result.success) return null
-
-//     return result.data
-//   } catch {
-//     return null
-//   }
-// }
+  return map[period] ?? null
+}
 
 const threadSelect = {
   id: threadsTable.id,
@@ -51,63 +55,121 @@ const authorSelect = {
   verified: userTable.verified,
 }
 
-// const getManyThreadHandler = orpcBase.threads.getMany.handler(
-//   async ({ context, errors, input }) => {
-//     const cursor = input.cursor ? decodeCursor(input.cursor) : null
+const listThreadsHandler = orpcBase.threads.list.handler(
+  async ({ context, errors, input }) => {
+    const { auth, db } = context
+    const { feed, period, sort, limit, cursor } = input
 
-//     if (input.cursor && !cursor) {
-//       throw errors.BAD_REQUEST({ message: 'Invalid thread cursor' })
-//     }
+    const isTopSort = sort === 'top'
+    const isDiscover = !isTopSort && feed === 'discover'
+    const after = cursor ? decodeCursor(cursor) : null
 
-//     const threads = await context.db
-//       .select({
-//         ...threadSelect,
-//         author: authorSelect,
-//         voteScore: sql<number>`
-//       count(case when ${votesTable.direction} = 'UPVOTE' then 1 end) -
-//       count(case when ${votesTable.direction} = 'DOWNVOTE' then 1 end)
-//     `.as('vote_score'),
-//         userVote: sql<ToggleVoteOutput['userVote']>`
-//       max(case when ${votesTable.userId} = ${context.auth?.user.id ?? null}
-//       then ${votesTable.direction} end)
-//     `.as('user_vote'),
-//       })
-//       .from(threadsTable)
-//       .innerJoin(userTable, eq(threadsTable.authorId, userTable.id))
-//       .leftJoin(votesTable, eq(votesTable.threadId, threadsTable.id))
-//       .groupBy(threadsTable.id, userTable.id)
-//       .where(
-//         cursor
-//           ? or(
-//               lt(threadsTable.createdAt, cursor.createdAt),
-//               and(
-//                 eq(threadsTable.createdAt, cursor.createdAt),
-//                 lt(threadsTable.id, cursor.id)
-//               )
-//             )
-//           : undefined
-//       )
-//       .orderBy(desc(threadsTable.createdAt), desc(threadsTable.id))
-//       .limit(input.limit + 1)
+    if (cursor && !after) {
+      throw errors.BAD_REQUEST({ message: 'Invalid thread cursor' })
+    }
 
-//     let nextCursor: string | null = null
-//     const hasMore = threads.length > input.limit
-//     const items = hasMore ? threads.slice(0, input.limit) : threads
-//     const lastItem = items.at(-1)
+    const conditions = []
 
-//     if (hasMore && lastItem) {
-//       nextCursor = encodeCursor({
-//         id: lastItem.id,
-//         createdAt: lastItem.createdAt,
-//       })
-//     }
+    if (isTopSort) {
+      const since = getPeriodSince(period)
+      if (since) conditions.push(gt(threadsTable.createdAt, since))
+    } else if (isDiscover) {
+      const windowSince = new Date(
+        Date.now() - DISCOVER_WINDOW_DAYS * 24 * 60 * 60 * 1000
+      )
+      conditions.push(gt(threadsTable.createdAt, windowSince))
+    }
 
-//     return {
-//       items,
-//       nextCursor,
-//     }
-//   }
-// )
+    if (after) {
+      if (isTopSort && 'points' in after) {
+        conditions.push(
+          or(
+            lt(threadsTable.points, after.points),
+            and(
+              eq(threadsTable.points, after.points),
+              lt(threadsTable.id, after.id)
+            )
+          )
+        )
+      } else if (isDiscover && 'trendingScore' in after) {
+        conditions.push(
+          or(
+            sql`${trendingScoreExpr} < ${after.trendingScore}`,
+            and(
+              sql`${trendingScoreExpr} = ${after.trendingScore}`,
+              lt(threadsTable.id, after.id)
+            )
+          )
+        )
+      } else if ('createdAt' in after) {
+        conditions.push(
+          or(
+            lt(threadsTable.createdAt, after.createdAt),
+            and(
+              eq(threadsTable.createdAt, after.createdAt),
+              lt(threadsTable.id, after.id)
+            )
+          )
+        )
+      }
+    }
+
+    const rows = await db
+      .select({
+        ...threadSelect,
+        author: authorSelect,
+        isVoted: sql<VoteDirectionNullable>`
+          max(case when ${votesThreadsTable.userId} = ${auth?.user.id ?? null}
+          then ${votesThreadsTable.direction} end)
+        `.as('is_voted'),
+        trendingScore: isDiscover
+          ? trendingScoreExpr.as('trending_score')
+          : sql<number>`0`,
+      })
+      .from(threadsTable)
+      .innerJoin(userTable, eq(threadsTable.authorId, userTable.id))
+      .leftJoin(
+        votesThreadsTable,
+        eq(votesThreadsTable.threadId, threadsTable.id)
+      )
+      .groupBy(threadsTable.id, userTable.id)
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(
+        ...(isTopSort
+          ? [desc(threadsTable.points), desc(threadsTable.id)]
+          : isDiscover
+            ? [sql`trending_score DESC`, desc(threadsTable.id)]
+            : [desc(threadsTable.createdAt), desc(threadsTable.id)])
+      )
+      .limit(limit + 1)
+
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
+    const lastItem = items.at(-1)
+
+    return {
+      items,
+      nextCursor:
+        hasMore && lastItem
+          ? encodeCursor(
+              isTopSort
+                ? { mode: 'top', id: lastItem.id, points: lastItem.points }
+                : isDiscover
+                  ? {
+                      mode: 'discover',
+                      id: lastItem.id,
+                      trendingScore: lastItem.trendingScore,
+                    }
+                  : {
+                      mode: 'latest',
+                      id: lastItem.id,
+                      createdAt: lastItem.createdAt,
+                    }
+            )
+          : null,
+    }
+  }
+)
 
 const getOneThreadHandler = orpcBase.threads.getOne.handler(
   async ({ context, errors, input }) => {
@@ -265,7 +327,7 @@ const createThreadHandler = orpcBase
 //   })
 
 export const threadsRouter = {
-  // getMany: getManyThreadHandler,
+  list: listThreadsHandler,
   getOne: getOneThreadHandler,
   create: createThreadHandler,
   // vote: toggleVoteHandler,

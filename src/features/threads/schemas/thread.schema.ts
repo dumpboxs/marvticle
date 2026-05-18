@@ -1,17 +1,16 @@
 import { z } from 'zod'
 
-import {
-  DEFAULT_MIN,
-  DEFAULT_THREADS_LIMIT,
-  MAX_THREADS_LIMIT,
-} from '#/configs'
 import { threadsTable } from '#/db/schemas/threads'
 import { userSelectSchema } from '#/features/users/schemas/users.schema'
 import {
   commentsCountSchema,
   createInsertSchema,
   createSelectSchema,
+  feedThreadSchema,
+  limitThreadsSchema,
+  periodThreadSchema,
   pointsSchema,
+  sortThreadSchema,
   voteDirectionNullableSchema,
 } from '#/schemas/drizzle-zod'
 
@@ -39,26 +38,15 @@ export const threadOutputSchema = createSelectSchema(threadsTable)
     isVoted: voteDirectionNullableSchema,
   })
 
-export const threadPaginationCursorSchema = threadOutputSchema.pick({
-  id: true,
-  createdAt: true,
+export const listThreadsInputSchema = z.object({
+  feed: feedThreadSchema.optional().default('discover'),
+  sort: sortThreadSchema.optional(),
+  period: periodThreadSchema.optional().default('all'),
+  limit: limitThreadsSchema,
+  cursor: z.string().optional(),
 })
 
-export type ThreadPaginationCursor = z.infer<
-  typeof threadPaginationCursorSchema
->
-
-export const getManyThreadsParamsSchema = z.object({
-  limit: z.coerce
-    .number()
-    .int()
-    .min(DEFAULT_MIN)
-    .max(MAX_THREADS_LIMIT)
-    .default(DEFAULT_THREADS_LIMIT),
-  cursor: z.string().min(DEFAULT_MIN).optional(),
-})
-
-export const threadsSchema = z.object({
+export const threadsOutputSchema = z.object({
   items: threadOutputSchema.array(),
   nextCursor: z.string().nullable(),
 })

@@ -1,38 +1,40 @@
-import { and, desc, eq, lt, or, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, lt, or, sql } from 'drizzle-orm'
 import limax from 'limax'
 import { nanoid } from 'nanoid'
 
-import { db } from '#/db'
-import { userTable, votesTable } from '#/db/schemas'
+import { userTable, votesThreadsTable } from '#/db/schemas'
 import { threadsTable } from '#/db/schemas/threads'
-import { threadPaginationCursorSchema } from '#/features/threads/schemas/thread.schema'
-import type { ThreadPaginationCursor } from '#/features/threads/schemas/thread.schema'
-import type { ToggleVoteOutput } from '#/features/votes/schemas/votes.schema'
+import { decodeCursor, encodeCursor } from '#/lib/cursor'
 import { orpcBase } from '#/orpc'
-import { orpcRequireAuthMiddleware } from '#/orpc/middlewares'
+import type { ORPCContext } from '#/orpc'
+import { authenticated } from '#/orpc/middlewares'
+import type { VoteAction, VoteDirectionNullable } from '#/schemas/drizzle-zod'
 
 const generateSlug = (title: string): string => {
   return `${limax(title)}-${nanoid(9)}`
 }
 
-const encodeCursor = (cursor: ThreadPaginationCursor): string => {
-  return Buffer.from(JSON.stringify(cursor), 'utf-8').toString('base64url')
-}
+const GRAVITY = 1.5
+const DISCOVER_WINDOW_DAYS = 30
 
-const decodeCursor = (cursor: string): ThreadPaginationCursor | null => {
-  try {
-    const value = JSON.parse(
-      Buffer.from(cursor, 'base64url').toString('utf-8')
-    ) as unknown
+const trendingScoreExpr = sql<number>`
+  ${threadsTable.points}::float /
+  POWER(
+    EXTRACT(EPOCH FROM (NOW() - ${threadsTable.createdAt})) / 3600.0 + 2,
+    ${GRAVITY}
+  )
+`
 
-    const result = threadPaginationCursorSchema.safeParse(value)
-
-    if (!result.success) return null
-
-    return result.data
-  } catch {
-    return null
+const getPeriodSince = (period: string): Date | null => {
+  const now = new Date()
+  const map: Record<string, Date | null> = {
+    week: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+    month: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+    year: new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000),
+    all: null,
   }
+
+  return map[period] ?? null
 }
 
 const threadSelect = {
@@ -40,95 +42,171 @@ const threadSelect = {
   slug: threadsTable.slug,
   title: threadsTable.title,
   content: threadsTable.content,
+  points: threadsTable.points,
+  commentsCount: threadsTable.commentsCount,
   createdAt: threadsTable.createdAt,
   updatedAt: threadsTable.updatedAt,
 }
 
 const authorSelect = {
+  id: userTable.id,
   name: userTable.name,
   username: userTable.username,
   image: userTable.image,
   verified: userTable.verified,
 }
 
-const getManyThreadHandler = orpcBase.threads.getMany.handler(
-  async ({ context, errors, input }) => {
-    const cursor = input.cursor ? decodeCursor(input.cursor) : null
+const viewerThreadVoteCondition = (viewerId: string | undefined) =>
+  viewerId
+    ? and(
+        eq(votesThreadsTable.threadId, threadsTable.id),
+        eq(votesThreadsTable.userId, viewerId)
+      )
+    : sql`false`
 
-    if (input.cursor && !cursor) {
+const selectThreadBySlug = async (context: ORPCContext, slug: string) => {
+  const [thread] = await context.db
+    .select({
+      ...threadSelect,
+      author: authorSelect,
+      isVoted: votesThreadsTable.direction,
+    })
+    .from(threadsTable)
+    .innerJoin(userTable, eq(threadsTable.authorId, userTable.id))
+    .leftJoin(
+      votesThreadsTable,
+      viewerThreadVoteCondition(context.auth?.user.id)
+    )
+    .where(eq(threadsTable.slug, slug))
+    .limit(1)
+
+  return thread ?? null
+}
+
+const listThreadsHandler = orpcBase.threads.list.handler(
+  async ({ context, errors, input }) => {
+    const { auth, db } = context
+    const { feed, period, sort, limit, cursor } = input
+
+    const isTopSort = sort === 'top'
+    const isDiscover = !isTopSort && feed === 'discover'
+    const after = cursor ? decodeCursor(cursor) : null
+
+    if (cursor && !after) {
       throw errors.BAD_REQUEST({ message: 'Invalid thread cursor' })
     }
 
-    const threads = await context.db
+    const conditions = []
+
+    if (isTopSort) {
+      const since = getPeriodSince(period)
+      if (since) conditions.push(gt(threadsTable.createdAt, since))
+    } else if (isDiscover) {
+      const windowSince = new Date(
+        Date.now() - DISCOVER_WINDOW_DAYS * 24 * 60 * 60 * 1000
+      )
+      conditions.push(gt(threadsTable.createdAt, windowSince))
+    }
+
+    if (after) {
+      if (isTopSort) {
+        if (after.mode !== 'top') {
+          throw errors.BAD_REQUEST({ message: 'Invalid thread cursor' })
+        }
+
+        conditions.push(
+          or(
+            lt(threadsTable.points, after.points),
+            and(
+              eq(threadsTable.points, after.points),
+              lt(threadsTable.id, after.id)
+            )
+          )
+        )
+      } else if (isDiscover) {
+        if (after.mode !== 'discover') {
+          throw errors.BAD_REQUEST({ message: 'Invalid thread cursor' })
+        }
+
+        conditions.push(
+          or(
+            sql`${trendingScoreExpr} < ${after.trendingScore}`,
+            and(
+              sql`${trendingScoreExpr} = ${after.trendingScore}`,
+              lt(threadsTable.id, after.id)
+            )
+          )
+        )
+      } else {
+        if (after.mode !== 'latest') {
+          throw errors.BAD_REQUEST({ message: 'Invalid thread cursor' })
+        }
+
+        conditions.push(
+          or(
+            lt(threadsTable.createdAt, after.createdAt),
+            and(
+              eq(threadsTable.createdAt, after.createdAt),
+              lt(threadsTable.id, after.id)
+            )
+          )
+        )
+      }
+    }
+
+    const rows = await db
       .select({
         ...threadSelect,
         author: authorSelect,
-        voteScore: sql<number>`
-      count(case when ${votesTable.direction} = 'UPVOTE' then 1 end) -
-      count(case when ${votesTable.direction} = 'DOWNVOTE' then 1 end)
-    `.as('vote_score'),
-        userVote: sql<ToggleVoteOutput['userVote']>`
-      max(case when ${votesTable.userId} = ${context.auth?.user.id}
-      then ${votesTable.direction} end)
-    `.as('user_vote'),
+        isVoted: votesThreadsTable.direction,
+        trendingScore: isDiscover
+          ? trendingScoreExpr.as('trending_score')
+          : sql<number>`0`,
       })
       .from(threadsTable)
       .innerJoin(userTable, eq(threadsTable.authorId, userTable.id))
-      .leftJoin(votesTable, eq(votesTable.threadId, threadsTable.id))
-      .groupBy(threadsTable.id, userTable.id)
-      .where(
-        cursor
-          ? or(
-              lt(threadsTable.createdAt, cursor.createdAt),
-              and(
-                eq(threadsTable.createdAt, cursor.createdAt),
-                lt(threadsTable.id, cursor.id)
-              )
-            )
-          : undefined
+      .leftJoin(votesThreadsTable, viewerThreadVoteCondition(auth?.user.id))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(
+        ...(isTopSort
+          ? [desc(threadsTable.points), desc(threadsTable.id)]
+          : isDiscover
+            ? [sql`trending_score DESC`, desc(threadsTable.id)]
+            : [desc(threadsTable.createdAt), desc(threadsTable.id)])
       )
-      .orderBy(desc(threadsTable.createdAt), desc(threadsTable.id))
-      .limit(input.limit + 1)
+      .limit(limit + 1)
 
-    let nextCursor: string | null = null
-    const hasMore = threads.length > input.limit
-    const items = hasMore ? threads.slice(0, input.limit) : threads
+    const hasMore = rows.length > limit
+    const items = hasMore ? rows.slice(0, limit) : rows
     const lastItem = items.at(-1)
-
-    if (hasMore && lastItem) {
-      nextCursor = encodeCursor({
-        id: lastItem.id,
-        createdAt: lastItem.createdAt,
-      })
-    }
 
     return {
       items,
-      nextCursor,
+      nextCursor:
+        hasMore && lastItem
+          ? encodeCursor(
+              isTopSort
+                ? { mode: 'top', id: lastItem.id, points: lastItem.points }
+                : isDiscover
+                  ? {
+                      mode: 'discover',
+                      id: lastItem.id,
+                      trendingScore: lastItem.trendingScore,
+                    }
+                  : {
+                      mode: 'latest',
+                      id: lastItem.id,
+                      createdAt: lastItem.createdAt,
+                    }
+            )
+          : null,
     }
   }
 )
 
-const getOneThreadBySlugHandler = orpcBase.threads.getOne.handler(
+const getOneThreadHandler = orpcBase.threads.getOne.handler(
   async ({ context, errors, input }) => {
-    const [thread] = await context.db
-      .select({
-        ...threadSelect,
-        author: authorSelect,
-        voteScore: sql<number>`
-      count(case when ${votesTable.direction} = 'UPVOTE' then 1 end) -
-      count(case when ${votesTable.direction} = 'DOWNVOTE' then 1 end)
-    `.as('vote_score'),
-        userVote: sql<ToggleVoteOutput['userVote']>`
-      max(case when ${votesTable.userId} = ${context.auth?.user.id}
-      then ${votesTable.direction} end)
-    `.as('user_vote'),
-      })
-      .from(threadsTable)
-      .innerJoin(userTable, eq(threadsTable.authorId, userTable.id))
-      .leftJoin(votesTable, eq(votesTable.threadId, threadsTable.id))
-      .groupBy(threadsTable.id, userTable.id)
-      .where(eq(threadsTable.slug, input.slug))
+    const thread = await selectThreadBySlug(context, input.slug)
 
     if (!thread) {
       throw errors.NOT_FOUND({ message: 'Thread not found' })
@@ -139,7 +217,7 @@ const getOneThreadBySlugHandler = orpcBase.threads.getOne.handler(
 )
 
 const createThreadHandler = orpcBase
-  .use(orpcRequireAuthMiddleware)
+  .use(authenticated)
   .threads.create.handler(async ({ context, errors, input }) => {
     const slug = generateSlug(input.title)
 
@@ -150,114 +228,194 @@ const createThreadHandler = orpcBase
         slug,
         authorId: context.auth.user.id,
       })
-      .returning({ slug: threadsTable.slug })
+      .returning({ ...threadSelect })
 
     if (!newThread) {
       throw errors.INTERNAL_SERVER_ERROR({ message: 'Failed to create thread' })
     }
 
-    return newThread
+    return {
+      ...newThread,
+      author: {
+        id: context.auth.user.id,
+        name: context.auth.user.name,
+        username: context.auth.user.username,
+        image: context.auth.user.image ?? null,
+        verified: context.auth.user.verified,
+      },
+      isVoted: null,
+    }
   })
 
-const toggleVoteHandler = orpcBase
-  .use(orpcRequireAuthMiddleware)
-  .threads.vote.handler(async ({ context, errors, input }) => {
-    const [existingThread] = await context.db
-      .select({
-        id: threadsTable.id,
-      })
-      .from(threadsTable)
-      .where(eq(threadsTable.slug, input.slug))
+const updateThreadHandler = orpcBase
+  .use(authenticated)
+  .threads.update.handler(async ({ context, errors, input }) => {
+    const { db, auth } = context
+    const { slug, title, content } = input
 
-    if (!existingThread) {
+    const thread = await selectThreadBySlug(context, slug)
+
+    if (!thread) {
       throw errors.NOT_FOUND({ message: 'Thread not found' })
     }
 
+    if (thread.author.id !== auth.user.id) {
+      throw errors.FORBIDDEN({
+        message: 'You are not the author of this thread',
+      })
+    }
+
+    const newSlug = title && title !== thread.title ? generateSlug(title) : slug
+
+    await db
+      .update(threadsTable)
+      .set({
+        slug: newSlug,
+        ...(title !== undefined && title !== thread.title && { title }),
+        ...(content !== undefined && content !== thread.content && { content }),
+        updatedAt: new Date(),
+      })
+      .where(eq(threadsTable.id, thread.id))
+
+    const updatedThread = await selectThreadBySlug(context, newSlug)
+
+    if (!updatedThread) {
+      throw errors.INTERNAL_SERVER_ERROR({ message: 'Failed to update thread' })
+    }
+
+    return updatedThread
+  })
+
+const deleteThreadHandler = orpcBase
+  .use(authenticated)
+  .threads.delete.handler(async ({ context, errors, input }) => {
+    const { db, auth } = context
+    const { slug } = input
+
+    const thread = await selectThreadBySlug(context, slug)
+
+    if (!thread) {
+      throw errors.NOT_FOUND({ message: 'Thread not found' })
+    }
+
+    if (thread.author.id !== auth.user.id) {
+      throw errors.FORBIDDEN({
+        message: 'You are not the author of this thread',
+      })
+    }
+
+    await db.delete(threadsTable).where(eq(threadsTable.id, thread.id))
+
+    return { success: true }
+  })
+
+const voteThreadHandler = orpcBase
+  .use(authenticated)
+  .threads.vote.handler(async ({ context, errors, input }) => {
+    const { db, auth } = context
+    const { direction, slug } = input
+
     const vote = await db.transaction(async (tx) => {
+      const [thread] = await tx
+        .select({
+          id: threadsTable.id,
+        })
+        .from(threadsTable)
+        .where(eq(threadsTable.slug, slug))
+        .for('update')
+        .limit(1)
+
+      if (!thread) {
+        throw errors.NOT_FOUND({ message: 'Thread not found' })
+      }
+
       const [existingVote] = await tx
-        .select()
-        .from(votesTable)
+        .select({
+          direction: votesThreadsTable.direction,
+        })
+        .from(votesThreadsTable)
         .where(
           and(
-            eq(votesTable.userId, context.auth.user.id),
-            eq(votesTable.threadId, existingThread.id)
+            eq(votesThreadsTable.userId, auth.user.id),
+            eq(votesThreadsTable.threadId, thread.id)
           )
         )
         .limit(1)
 
-      const currentVote = existingVote
+      let pointDelta: number
+      let action: VoteAction
+      let resultDirection: VoteDirectionNullable
 
-      if (!currentVote) {
-        await tx.insert(votesTable).values({
-          userId: context.auth.user.id,
-          threadId: existingThread.id,
-          direction: input.direction,
+      if (!existingVote) {
+        await tx.insert(votesThreadsTable).values({
+          threadId: thread.id,
+          userId: auth.user.id,
+          direction,
         })
 
-        return {
-          action: 'VOTED',
-          userVote: input.direction,
-        }
-      } else if (currentVote.direction === input.direction) {
+        pointDelta = direction === 'UPVOTE' ? 1 : -1
+        action = 'VOTED'
+        resultDirection = direction
+      } else if (existingVote.direction === direction) {
         await tx
-          .delete(votesTable)
+          .delete(votesThreadsTable)
           .where(
             and(
-              eq(votesTable.userId, context.auth.user.id),
-              eq(votesTable.threadId, existingThread.id)
+              eq(votesThreadsTable.userId, auth.user.id),
+              eq(votesThreadsTable.threadId, thread.id)
             )
           )
 
-        return {
-          action: 'UNVOTED',
-          userVote: null,
-        }
+        pointDelta = direction === 'UPVOTE' ? -1 : 1
+        action = 'UNVOTED'
+        resultDirection = null
       } else {
         await tx
-          .update(votesTable)
+          .update(votesThreadsTable)
           .set({
-            direction: input.direction,
+            direction,
           })
           .where(
             and(
-              eq(votesTable.userId, context.auth.user.id),
-              eq(votesTable.threadId, existingThread.id)
+              eq(votesThreadsTable.userId, auth.user.id),
+              eq(votesThreadsTable.threadId, thread.id)
             )
           )
 
-        return {
-          action: 'CHANGED',
-          userVote: input.direction,
-        }
+        pointDelta = direction === 'UPVOTE' ? 2 : -2
+        action = 'CHANGED'
+        resultDirection = direction
+      }
+
+      const [updateThread] = await tx
+        .update(threadsTable)
+        .set({
+          points: sql`${threadsTable.points} + ${pointDelta}`,
+        })
+        .where(eq(threadsTable.id, thread.id))
+        .returning({ points: threadsTable.points })
+
+      if (!updateThread) {
+        throw errors.INTERNAL_SERVER_ERROR({
+          message: 'Failed to update thread',
+        })
+      }
+
+      return {
+        action,
+        points: updateThread.points,
+        isVoted: resultDirection,
       }
     })
 
-    const [countVotes] = await context.db
-      .select({
-        voteScore: sql<number>`
-      count(case when ${votesTable.direction} = 'UPVOTE' then 1 end) -
-      count(case when ${votesTable.direction} = 'DOWNVOTE' then 1 end)
-    `.as('vote_score'),
-      })
-      .from(votesTable)
-      .where(eq(votesTable.threadId, existingThread.id))
-
-    if (!countVotes) {
-      throw errors.INTERNAL_SERVER_ERROR({
-        message: 'Failed to get total votes',
-      })
-    }
-
-    return {
-      action: vote.action,
-      userVote: vote.userVote,
-      voteScore: countVotes.voteScore,
-    } as ToggleVoteOutput
+    return vote
   })
 
 export const threadsRouter = {
-  getMany: getManyThreadHandler,
-  getOne: getOneThreadBySlugHandler,
+  list: listThreadsHandler,
+  getOne: getOneThreadHandler,
   create: createThreadHandler,
-  vote: toggleVoteHandler,
+  update: updateThreadHandler,
+  delete: deleteThreadHandler,
+  vote: voteThreadHandler,
 }

@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+
 import { DotsThreeIcon } from '@phosphor-icons/react'
 import { formatDistanceToNowStrict } from 'date-fns'
 import {
@@ -24,7 +26,7 @@ import { parseMarkdownToWords } from '#/lib/parse-markdown'
 import { cn } from '#/lib/utils'
 import type { RouterOutputs } from '#/orpc/routers'
 
-type ThreadCardProps = RouterOutputs['threads']['getMany']['items'][number]
+type ThreadCardProps = RouterOutputs['threads']['list']['items'][number]
 
 export const ThreadCard = (thread: ThreadCardProps) => {
   const voteMutation = useToggleVoteMutation()
@@ -70,12 +72,30 @@ export const ThreadCard = (thread: ThreadCardProps) => {
         </div>
 
         <CardTitle className="line-clamp-2 text-lg font-semibold text-balance">
-          {thread.title}
+          <Link
+            to={'/$username/threads/$threadSlug'}
+            params={{
+              username: thread.author.username,
+              threadSlug: thread.slug,
+            }}
+            viewTransition
+          >
+            {thread.title}
+          </Link>
         </CardTitle>
       </CardHeader>
 
       <CardContent className="mb-4 line-clamp-2 p-0! text-base font-normal text-muted-foreground">
-        {parseMarkdownToWords(thread.content)}
+        <Link
+          to={'/$username/threads/$threadSlug'}
+          params={{
+            username: thread.author.username,
+            threadSlug: thread.slug,
+          }}
+          viewTransition
+        >
+          {parseMarkdownToWords(thread.content)}
+        </Link>
       </CardContent>
 
       <CardFooter className="w-full gap-4 border-0 p-0!">
@@ -83,14 +103,14 @@ export const ThreadCard = (thread: ThreadCardProps) => {
           <Button
             type="button"
             aria-label="Upvote thread"
-            aria-pressed={thread.userVote === 'UPVOTE'}
+            aria-pressed={thread.isVoted === 'UPVOTE'}
             onClick={() => handleVote('UPVOTE')}
             size="icon-sm"
             variant="ghost"
           >
             <motion.span
               animate={
-                thread.userVote === 'UPVOTE'
+                thread.isVoted === 'UPVOTE'
                   ? { scale: [1, 1.5, 0.9, 1.1, 1], rotate: [0, -10, 8, -4, 0] }
                   : { scale: 1, rotate: 0 }
               }
@@ -99,7 +119,7 @@ export const ThreadCard = (thread: ThreadCardProps) => {
               <ArrowBigUpIcon
                 className={cn(
                   'size-4 transition-colors duration-300',
-                  thread.userVote === 'UPVOTE'
+                  thread.isVoted === 'UPVOTE'
                     ? 'fill-primary text-primary'
                     : 'fill-none'
                 )}
@@ -110,20 +130,20 @@ export const ThreadCard = (thread: ThreadCardProps) => {
           <div className="relative flex h-5 w-6 items-center justify-center overflow-hidden tabular-nums">
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.span
-                key={thread.voteScore}
+                key={thread.points}
                 initial={{
-                  y: thread.userVote === 'UPVOTE' ? 10 : -10,
+                  y: thread.isVoted === 'UPVOTE' ? 10 : -10,
                   opacity: 0,
                 }}
                 animate={{ y: 0, opacity: 1 }}
                 exit={{
-                  y: thread.userVote === 'UPVOTE' ? -10 : 10,
+                  y: thread.isVoted === 'UPVOTE' ? -10 : 10,
                   opacity: 0,
                 }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
                 className="absolute text-sm"
               >
-                {thread.voteScore}
+                {thread.points}
               </motion.span>
             </AnimatePresence>
           </div>
@@ -131,14 +151,14 @@ export const ThreadCard = (thread: ThreadCardProps) => {
           <Button
             type="button"
             aria-label="Downvote thread"
-            aria-pressed={thread.userVote === 'DOWNVOTE'}
+            aria-pressed={thread.isVoted === 'DOWNVOTE'}
             onClick={() => handleVote('DOWNVOTE')}
             size="icon-sm"
             variant="ghost"
           >
             <motion.span
               animate={
-                thread.userVote === 'DOWNVOTE'
+                thread.isVoted === 'DOWNVOTE'
                   ? { scale: [1, 1.5, 0.9, 1.1, 1], rotate: [0, 10, -8, 4, 0] }
                   : { scale: 1, rotate: 0 }
               }
@@ -147,7 +167,7 @@ export const ThreadCard = (thread: ThreadCardProps) => {
               <ArrowBigDownIcon
                 className={cn(
                   'size-4 transition-colors duration-300',
-                  thread.userVote === 'DOWNVOTE'
+                  thread.isVoted === 'DOWNVOTE'
                     ? 'fill-primary text-primary'
                     : 'fill-none'
                 )}
@@ -159,7 +179,7 @@ export const ThreadCard = (thread: ThreadCardProps) => {
         <Button variant="ghost" size="sm">
           <MessagesSquareIcon />
 
-          <span>0</span>
+          <span>{thread.commentsCount}</span>
         </Button>
       </CardFooter>
     </Card>

@@ -1,12 +1,13 @@
 import { sql } from 'drizzle-orm'
 import {
-  type AnyPgColumn,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 
 import { userTable } from '#/db/schemas/auth'
 import { threadsTable } from '#/db/schemas/threads'
@@ -30,11 +31,14 @@ export const commentsTable = pgTable(
       }
     ),
     content: text('content').notNull(),
+    depth: integer('depth').default(0).notNull(),
+    points: integer('points').default(0).notNull(),
+    commentsCount: integer('comments_count').default(0).notNull(),
     deletedAt: timestamp('deleted_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .$onUpdate(() => new Date())
       .notNull(),
   },
   (table) => [
@@ -44,6 +48,11 @@ export const commentsTable = pgTable(
     index('comments_thread_created_id_idx').on(
       table.threadId,
       table.createdAt,
+      table.id
+    ),
+    index('comments_thread_points_id_idx').on(
+      table.threadId,
+      table.points,
       table.id
     ),
   ]

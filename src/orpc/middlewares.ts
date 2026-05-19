@@ -1,9 +1,11 @@
 import { orpcBase } from '#/orpc'
 
-export const orpcRequireAuthMiddleware = orpcBase.middleware(
+export const authenticated = orpcBase.middleware(
   async ({ next, context, errors }) => {
     if (!context.auth) {
-      throw errors.UNAUTHORIZED()
+      throw errors.UNAUTHORIZED({
+        message: 'You are not authenticated',
+      })
     }
 
     return next({
@@ -16,3 +18,6 @@ export const orpcRequireAuthMiddleware = orpcBase.middleware(
     })
   }
 )
+
+/** `@deprecated` Use `authenticated` instead */
+export const orpcRequireAuthMiddleware = authenticated

@@ -1,11 +1,17 @@
 import {
-  commentOutputSchema,
+  commentDeleteThreadInputSchema,
+  commentThreadOutputSchema,
+  commentUpdateThreadInputSchema,
   createCommentThreadInputSchema,
   listCommentRepliesInputSchema,
   listCommentsOutputSchema,
   listCommentsThreadInputSchema,
   replyToCommentThreadInputSchema,
 } from '#/features/comments/schemas/comment.schema'
+import {
+  voteCommentThreadInputSchema,
+  voteCommentThreadOutputSchema,
+} from '#/features/votes/schemas/votes.schema'
 import { orpcBaseContract as base } from '#/orpc/contracts/base.contract'
 
 const listCommentsByThreadContract = base
@@ -48,7 +54,7 @@ const createCommentThreadContract = base
     successDescription: 'Comment created successfully',
   })
   .input(createCommentThreadInputSchema)
-  .output(commentOutputSchema)
+  .output(commentThreadOutputSchema)
 
 const replyCommentThreadContract = base
   .route({
@@ -62,41 +68,56 @@ const replyCommentThreadContract = base
     successDescription: 'Comment replied successfully',
   })
   .input(replyToCommentThreadInputSchema)
-  .output(commentOutputSchema)
+  .output(commentThreadOutputSchema)
 
-// const updateCommentContract = base
-//   .route({
-//     path: '/comments/{id}',
-//     method: 'PATCH',
-//     summary: 'Update comment',
-//     description: 'Update an existing comment owned by the current user.',
-//     tags: ['Comments'],
-//     operationId: 'updateComment',
-//     successStatus: 200,
-//     successDescription: 'Comment updated successfully',
-//   })
-//   .input(commentUpdateSchema)
-//   .output(commentSelectSchema)
+const updateCommentThreadContract = base
+  .route({
+    path: '/comments/{id}',
+    method: 'PATCH',
+    summary: 'Update comment',
+    description: 'Update an existing comment owned by the current user.',
+    tags: ['Comments'],
+    operationId: 'updateComment',
+    successStatus: 200,
+    successDescription: 'Comment updated successfully',
+  })
+  .input(commentUpdateThreadInputSchema)
+  .output(commentThreadOutputSchema)
 
-// const deleteCommentContract = base
-//   .route({
-//     path: '/comments/{id}',
-//     method: 'DELETE',
-//     summary: 'Delete comment',
-//     description: 'Soft delete an existing comment owned by the current user.',
-//     tags: ['Comments'],
-//     operationId: 'deleteComment',
-//     successStatus: 200,
-//     successDescription: 'Comment deleted successfully',
-//   })
-//   .input(commentDeleteSchema)
-//   .output(commentSelectSchema)
+const deleteCommentThreadContract = base
+  .route({
+    path: '/comments/{id}',
+    method: 'DELETE',
+    summary: 'Delete comment',
+    description: 'Delete an existing comment owned by the current user.',
+    tags: ['Comments'],
+    operationId: 'deleteComment',
+    successStatus: 200,
+    successDescription: 'Comment deleted successfully',
+  })
+  .input(commentDeleteThreadInputSchema)
+  .output(commentThreadOutputSchema)
+
+const voteCommentThreadContract = base
+  .route({
+    path: '/comments/{id}/vote',
+    method: 'POST',
+    summary: 'Vote comment',
+    description: 'Vote comment',
+    tags: ['Votes'],
+    operationId: 'voteCommentThread',
+    successStatus: 200,
+    successDescription: 'Vote comment successfully',
+  })
+  .input(voteCommentThreadInputSchema)
+  .output(voteCommentThreadOutputSchema)
 
 export const commentsContract = {
   list: listCommentsByThreadContract,
   listReplies: listCommentRepliesContract,
   create: createCommentThreadContract,
   reply: replyCommentThreadContract,
-  // update: updateCommentContract,
-  // delete: deleteCommentContract,
+  update: updateCommentThreadContract,
+  delete: deleteCommentThreadContract,
+  vote: voteCommentThreadContract,
 }

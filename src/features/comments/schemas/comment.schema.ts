@@ -47,9 +47,11 @@ type CommentSelectSchema = {
   isVoted: VoteDirectionNullable
 }
 
-const childCommentsSchema = z.lazy(() => commentOutputSchema.array().optional())
+const childCommentsThreadSchema = z.lazy(() =>
+  commentThreadOutputSchema.array().optional()
+)
 
-export const commentOutputSchema: z.ZodType<CommentSelectSchema> =
+export const commentThreadOutputSchema: z.ZodType<CommentSelectSchema> =
   createSelectSchema(commentsTable)
     .pick({
       id: true,
@@ -75,7 +77,7 @@ export const commentOutputSchema: z.ZodType<CommentSelectSchema> =
         username: z.string(),
         image: z.string().nullable(),
       }),
-      childComments: childCommentsSchema,
+      childComments: childCommentsThreadSchema,
       isVoted: voteDirectionNullableSchema,
     })
 
@@ -107,7 +109,7 @@ export const listCommentRepliesInputSchema = z.object({
 })
 
 export const listCommentsOutputSchema = z.object({
-  items: commentOutputSchema.array(),
+  items: commentThreadOutputSchema.array(),
   nextCursor: z.string().nullable(),
 })
 
@@ -139,12 +141,12 @@ export const replyToCommentThreadInputSchema = createInsertSchema(
     content: commentContentSchema,
   })
 
-export const commentUpdateInputSchema = z.object({
+export const commentUpdateThreadInputSchema = z.object({
   id: z.uuid(),
   content: commentContentSchema,
 })
 
-export const commentDeleteInputSchema = z.object({
+export const commentDeleteThreadInputSchema = z.object({
   id: z.uuid(),
 })
 

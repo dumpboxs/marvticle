@@ -11,10 +11,11 @@ import type { ORPCContext } from '#/orpc'
 import { authenticated } from '#/orpc/middlewares'
 import type {
   SortByComments,
+  VoteAction,
   VoteDirectionNullable,
 } from '#/schemas/drizzle-zod'
 
-// const DELETED_COMMENT_CONTENT = '[deleted]'
+const DELETED_COMMENT_CONTENT = '[deleted]'
 
 const commentSelect = {
   id: commentsTable.id,
@@ -417,82 +418,237 @@ const replyCommentThreadHandler = orpcBase
     return result
   })
 
-// const updateCommentHandler = orpcBase
-//   .use(orpcRequireAuthMiddleware)
-//   .comments.update.handler(async ({ context, errors, input }) => {
-//     const currentComment = await getCommentById({ context, id: input.id })
+const commentUpdateThreadHandler = orpcBase
+  .use(authenticated)
+  .comments.update.handler(async ({ context, errors, input }) => {
+    const { auth, db } = context
+    const { id, content } = input
 
-//     if (!currentComment) {
-//       throw errors.NOT_FOUND({ message: 'Comment not found' })
-//     }
+    const currentComment = await db.query.commentsTable.findFirst({
+      where: eq(commentsTable.id, id),
+      columns: { id: true, authorId: true, deletedAt: true },
+    })
 
-//     if (currentComment.authorId !== context.auth.user.id) {
-//       throw errors.FORBIDDEN({
-//         message: 'You can only update your own comments',
-//       })
-//     }
+    if (!currentComment) {
+      throw errors.NOT_FOUND({ message: 'Comment not found' })
+    }
 
-//     if (currentComment.deletedAt) {
-//       throw errors.CONFLICT({
-//         message: 'Cannot update a deleted comment',
-//       })
-//     }
+    if (currentComment.authorId !== auth.user.id) {
+      throw errors.FORBIDDEN({
+        message: 'You can only update your own comments',
+      })
+    }
 
-//     await context.db
-//       .update(commentsTable)
-//       .set({ content: input.content })
-//       .where(eq(commentsTable.id, input.id))
+    if (currentComment.deletedAt) {
+      throw errors.CONFLICT({
+        message: 'Cannot update a deleted comment',
+      })
+    }
 
-//     const updatedComment = await getCommentById({ context, id: input.id })
+    await db
+      .update(commentsTable)
+      .set({ content })
+      .where(eq(commentsTable.id, id))
 
-//     if (!updatedComment) {
-//       throw errors.INTERNAL_SERVER_ERROR({
-//         message: 'Failed to load updated comment',
-//       })
-//     }
+    const [updatedComment] = await db
+      .select({
+        ...commentSelect,
+        author: authorSelect,
+        isVoted: sql<VoteDirectionNullable>`
+            max(case when ${votesCommentsTable.userId} = ${auth.user.id}
+            then ${votesCommentsTable.direction} end)
+          `.as('is_voted'),
+      })
+      .from(commentsTable)
+      .innerJoin(userTable, eq(commentsTable.authorId, userTable.id))
+      .leftJoin(
+        votesCommentsTable,
+        eq(votesCommentsTable.commentId, commentsTable.id)
+      )
+      .groupBy(commentsTable.id, userTable.id)
+      .where(eq(commentsTable.id, id))
+      .limit(1)
 
-//     return updatedComment
-//   })
+    if (!updatedComment) {
+      throw errors.INTERNAL_SERVER_ERROR({
+        message: 'Failed to load updated comment',
+      })
+    }
 
-// const deleteCommentHandler = orpcBase
-//   .use(orpcRequireAuthMiddleware)
-//   .comments.delete.handler(async ({ context, errors, input }) => {
-//     const currentComment = await getCommentById({ context, id: input.id })
+    return {
+      ...updatedComment,
+      isDeleted: updatedComment.deletedAt !== null,
+    }
+  })
 
-//     if (!currentComment) {
-//       throw errors.NOT_FOUND({ message: 'Comment not found' })
-//     }
+const commentDeleteHandler = orpcBase
+  .use(authenticated)
+  .comments.delete.handler(async ({ context, errors, input }) => {
+    const { auth, db } = context
+    const { id } = input
 
-//     if (currentComment.authorId !== context.auth.user.id) {
-//       throw errors.FORBIDDEN({
-//         message: 'You can only delete your own comments',
-//       })
-//     }
+    const currentComment = await db.query.commentsTable.findFirst({
+      where: eq(commentsTable.id, id),
+      columns: { authorId: true },
+    })
 
-//     await context.db
-//       .update(commentsTable)
-//       .set({
-//         content: DELETED_COMMENT_CONTENT,
-//         deletedAt: new Date(),
-//       })
-//       .where(eq(commentsTable.id, input.id))
+    if (!currentComment) {
+      throw errors.NOT_FOUND({ message: 'Comment not found' })
+    }
 
-//     const deletedComment = await getCommentById({ context, id: input.id })
+    if (currentComment.authorId !== auth.user.id) {
+      throw errors.FORBIDDEN({
+        message: 'You can only delete your own comments',
+      })
+    }
 
-//     if (!deletedComment) {
-//       throw errors.INTERNAL_SERVER_ERROR({
-//         message: 'Failed to load deleted comment',
-//       })
-//     }
+    await context.db
+      .update(commentsTable)
+      .set({
+        content: DELETED_COMMENT_CONTENT,
+        deletedAt: new Date(),
+      })
+      .where(eq(commentsTable.id, input.id))
 
-//     return deletedComment
-//   })
+    const [updatedComment] = await db
+      .select({
+        ...commentSelect,
+        author: authorSelect,
+        isVoted: sql<VoteDirectionNullable>`
+            max(case when ${votesCommentsTable.userId} = ${auth.user.id}
+            then ${votesCommentsTable.direction} end)
+          `.as('is_voted'),
+      })
+      .from(commentsTable)
+      .innerJoin(userTable, eq(commentsTable.authorId, userTable.id))
+      .leftJoin(
+        votesCommentsTable,
+        eq(votesCommentsTable.commentId, commentsTable.id)
+      )
+      .groupBy(commentsTable.id, userTable.id)
+      .where(eq(commentsTable.id, input.id))
+      .limit(1)
+
+    if (!updatedComment) {
+      throw errors.INTERNAL_SERVER_ERROR({
+        message: 'Failed to load updated comment',
+      })
+    }
+
+    return {
+      ...updatedComment,
+      isDeleted: updatedComment.deletedAt !== null,
+    }
+  })
+
+const voteCommentThreadHandler = orpcBase
+  .use(authenticated)
+  .comments.vote.handler(async ({ context, errors, input }) => {
+    const { db, auth } = context
+    const { direction, id } = input
+
+    const vote = await db.transaction(async (tx) => {
+      const [comment] = await tx
+        .select({
+          id: commentsTable.id,
+        })
+        .from(commentsTable)
+        .where(eq(commentsTable.id, id))
+        .for('update')
+        .limit(1)
+
+      if (!comment) {
+        throw errors.NOT_FOUND({ message: 'Comment not found' })
+      }
+
+      const [existingVote] = await tx
+        .select({
+          direction: votesCommentsTable.direction,
+        })
+        .from(votesCommentsTable)
+        .where(
+          and(
+            eq(votesCommentsTable.userId, auth.user.id),
+            eq(votesCommentsTable.commentId, comment.id)
+          )
+        )
+        .limit(1)
+
+      let pointDelta: number
+      let action: VoteAction
+      let resultDirection: VoteDirectionNullable
+
+      if (!existingVote) {
+        await tx.insert(votesCommentsTable).values({
+          commentId: comment.id,
+          userId: auth.user.id,
+          direction,
+        })
+
+        pointDelta = direction === 'UPVOTE' ? 1 : -1
+        action = 'VOTED'
+        resultDirection = direction
+      } else if (existingVote.direction === direction) {
+        await tx
+          .delete(votesCommentsTable)
+          .where(
+            and(
+              eq(votesCommentsTable.userId, auth.user.id),
+              eq(votesCommentsTable.commentId, comment.id)
+            )
+          )
+
+        pointDelta = direction === 'UPVOTE' ? -1 : 1
+        action = 'UNVOTED'
+        resultDirection = null
+      } else {
+        await tx
+          .update(votesCommentsTable)
+          .set({
+            direction,
+          })
+          .where(
+            and(
+              eq(votesCommentsTable.userId, auth.user.id),
+              eq(votesCommentsTable.commentId, comment.id)
+            )
+          )
+
+        pointDelta = direction === 'UPVOTE' ? 2 : -2
+        action = 'CHANGED'
+        resultDirection = direction
+      }
+
+      const [updateComment] = await tx
+        .update(commentsTable)
+        .set({
+          points: sql`${commentsTable.points} + ${pointDelta}`,
+        })
+        .where(eq(commentsTable.id, comment.id))
+        .returning({ points: commentsTable.points })
+
+      if (!updateComment) {
+        throw errors.INTERNAL_SERVER_ERROR({
+          message: 'Failed to update comment',
+        })
+      }
+
+      return {
+        action,
+        userVote: resultDirection,
+        newPoints: updateComment.points,
+      }
+    })
+
+    return vote
+  })
 
 export const commentsRouter = {
   list: listCommentsThreadHandler,
   listReplies: listCommentRepliesHandler,
   create: createCommentThreadHandler,
   reply: replyCommentThreadHandler,
-  // update: updateCommentHandler,
-  // delete: deleteCommentHandler,
+  update: commentUpdateThreadHandler,
+  delete: commentDeleteHandler,
+  vote: voteCommentThreadHandler,
 }

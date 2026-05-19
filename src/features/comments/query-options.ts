@@ -1,9 +1,10 @@
 import { DEFAULT_COMMENTS_LIMIT } from '#/configs'
 import { orpc } from '#/orpc/client'
-import type { RouterInputs } from '#/orpc/routers'
+import type { RouterInputs, RouterOutputs } from '#/orpc/routers'
 
 type ListCommentsInput = RouterInputs['comments']['list']
 type ListCommentRepliesInput = RouterInputs['comments']['listReplies']
+type CommentOutput = RouterOutputs['comments']['list']['items'][number]
 
 export type ThreadCommentsInfiniteQueryOptionsInput = {
   threadSlug: string
@@ -17,6 +18,7 @@ export type CommentRepliesInfiniteQueryOptionsInput = {
   limit?: number
   sortBy?: ListCommentRepliesInput['sortBy']
   enabled?: boolean
+  comment?: CommentOutput
 }
 
 export const threadCommentsInfiniteQueryOptions = ({
@@ -42,6 +44,7 @@ export const commentRepliesInfiniteQueryOptions = ({
   limit = DEFAULT_COMMENTS_LIMIT,
   sortBy,
   enabled = true,
+  comment,
 }: CommentRepliesInfiniteQueryOptionsInput) =>
   orpc.comments.listReplies.infiniteOptions({
     input: (pageParam: string | null) => ({
@@ -53,4 +56,14 @@ export const commentRepliesInfiniteQueryOptions = ({
     initialPageParam: null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled,
+    initialData: {
+      pageParams: [],
+      pages: [
+        {
+          items: comment?.childComments ?? [],
+          nextCursor: null,
+          totalCount: comment?.childComments?.length ?? 0,
+        },
+      ],
+    },
   })

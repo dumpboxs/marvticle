@@ -1,12 +1,19 @@
 import { useForm } from '@tanstack/react-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { ClientOnly, getRouteApi, useLocation } from '@tanstack/react-router'
 
-import type { FC } from 'react'
+import type { Dispatch, FC, SetStateAction } from 'react'
 import { useState } from 'react'
 
 import { ArrowBendLeftUpIcon } from '@phosphor-icons/react'
 import { formatDistanceToNowStrict } from 'date-fns'
-import { MinusIcon, PlusIcon } from 'lucide-react'
+import {
+  ArrowBigDownIcon,
+  ArrowBigUpIcon,
+  ChevronDownIcon,
+  MinusIcon,
+  PlusIcon,
+} from 'lucide-react'
 
 import BlockNoteEditor from '#/components/block-note/editor'
 import { MarkdownRenderer } from '#/components/markdown-renderer'
@@ -16,24 +23,31 @@ import { Field, FieldGroup } from '#/components/ui/field'
 import { Separator } from '#/components/ui/separator'
 import { Spinner } from '#/components/ui/spinner'
 import { UserAvatar } from '#/components/user-avatar'
+import type { VoteDirectionType } from '#/db/schemas'
 import {
+  commentRepliesKey,
   useCommentRepliesInfiniteQuery,
   useCreateReplyMutation,
 } from '#/features/comments/hooks/use-comments'
 import { commentCreateReplySchema } from '#/features/comments/schemas/comment.schema'
+import { useToggleCommentVoteMutation } from '#/features/votes/hooks/use-votes'
 import { cn } from '#/lib/utils'
 import type { RouterOutputs } from '#/orpc/routers'
 
 type CommentOutput = RouterOutputs['comments']['list']['items'][number]
 
-interface CommentsThreadTreeProps {
-  comments: CommentOutput[]
+interface CommentThreadNodeProps {
+  comment: CommentOutput
+  depth: number
+  activeReplyId: string | null
+  setActiveReplyId: Dispatch<SetStateAction<string | null>>
+  isLast: boolean
+  toggleVote: ReturnType<typeof useToggleCommentVoteMutation>['mutate']
   threadAuthorId: string
 }
 
-interface CommentsThreadTreeNodeProps {
-  comment: CommentOutput
-  depth: number
+interface CommentsThreadTreeProps {
+  comments: CommentOutput[]
   threadAuthorId: string
 }
 
@@ -44,29 +58,47 @@ interface CommentReplyFormProps {
 
 const routeApi = getRouteApi('/_main/$username_/threads/$threadSlug')
 
-const CommentsThreadTreeNode: FC<CommentsThreadTreeNodeProps> = ({
+const CommentThreadNode: FC<CommentThreadNodeProps> = ({
   comment,
   depth,
+  activeReplyId,
+  setActiveReplyId,
+  isLast,
+  toggleVote,
   threadAuthorId,
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false)
-  const [showReplyForm, setShowReplyForm] = useState<boolean>(false)
 
-  const { replies, totalCount } = useCommentRepliesInfiniteQuery({
+  const queryClient = useQueryClient()
+
+  const {
+    replies,
+    totalCount,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useCommentRepliesInfiniteQuery({
     parentId: comment.id,
     enabled: !!isExpanded,
+    comment,
   })
 
   const isAuthor = comment.author.id === threadAuthorId
   const repliesCount = Math.max(comment.commentsCount, totalCount)
   const relativeTime = (date: Date) => formatDistanceToNowStrict(date)
-
-  const handleReply = () => {
-    setShowReplyForm((value) => !value)
-  }
+  const isReplying = activeReplyId === comment.id
+  const isLoadFirstPage = replies.length === 0 && comment.commentsCount > 0
 
   const toggleExpand = () => {
     setIsExpanded((value) => !value)
+  }
+
+  const handleReply = () => {
+    setActiveReplyId((value) => (value === comment.id ? null : comment.id))
+  }
+
+  const handleVote = (direction: VoteDirectionType, commentId: string) => {
+    toggleVote({ direction, id: commentId })
   }
 
   return (
@@ -74,7 +106,7 @@ const CommentsThreadTreeNode: FC<CommentsThreadTreeNodeProps> = ({
       className={cn(
         'space-y-4 transition-all duration-500 ease-in-out',
         depth > 0
-          ? 'ml-4 border-l-2 border-muted pl-6'
+          ? 'ml-4 border-l border-border pl-6'
           : 'border-l-0 border-transparent'
       )}
     >
@@ -132,7 +164,29 @@ const CommentsThreadTreeNode: FC<CommentsThreadTreeNodeProps> = ({
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => handleVote('UPVOTE', comment.id)}
+            >
+              <ArrowBigUpIcon />
+            </Button>
+
+            <span className="text-sm font-medium">{comment.points}</span>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => handleVote('DOWNVOTE', comment.id)}
+            >
+              <ArrowBigDownIcon />
+            </Button>
+          </div>
+
           {!comment.isDeleted && (
             <Button
               type="button"
@@ -146,7 +200,7 @@ const CommentsThreadTreeNode: FC<CommentsThreadTreeNodeProps> = ({
           )}
         </div>
 
-        {(repliesCount > 0 || isExpanded) && (
+        {(isExpanded || repliesCount > 0) && (
           <Button
             type="button"
             variant="ghost"
@@ -169,25 +223,64 @@ const CommentsThreadTreeNode: FC<CommentsThreadTreeNodeProps> = ({
         )}
       </div>
 
-      {showReplyForm && (
-        <div className="mt-4 ml-4 border-l-2 border-muted pl-6">
+      {isReplying && (
+        <div className="mt-4 ml-4 border-l border-border pl-6">
           <CommentReplyForm
             parentId={comment.id}
-            onCloseForm={() => setShowReplyForm((value) => !value)}
+            onCloseForm={() => setActiveReplyId(null)}
           />
         </div>
       )}
 
       {isExpanded &&
-        replies.map((reply) => (
-          <div key={reply.id} className="">
-            <CommentsThreadTreeNode
+        replies.map((reply, index) => {
+          const isLastPage = index === replies.length - 1
+
+          return (
+            <CommentThreadNode
+              key={reply.id}
               comment={reply}
-              depth={reply.depth}
+              depth={depth + 1}
+              activeReplyId={activeReplyId}
+              setActiveReplyId={setActiveReplyId}
+              isLast={isLastPage && index === replies.length - 1}
+              toggleVote={toggleVote}
               threadAuthorId={threadAuthorId}
             />
-          </div>
-        ))}
+          )
+        })}
+
+      {isExpanded && (hasNextPage || isLoadFirstPage) && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (isLoadFirstPage) {
+              void queryClient.invalidateQueries({
+                queryKey: commentRepliesKey(comment.id),
+              })
+            } else {
+              void fetchNextPage()
+            }
+          }}
+          disabled={!(hasNextPage || isLoadFirstPage) || isFetchingNextPage}
+        >
+          {isFetchingNextPage ? (
+            <>
+              <Spinner />
+              <span className="text-xs">Loading...</span>
+            </>
+          ) : (
+            <>
+              <ChevronDownIcon />
+              <span className="text-xs">More replies</span>
+            </>
+          )}
+        </Button>
+      )}
+
+      {!isLast && <Separator className="my-2" />}
     </div>
   )
 }
@@ -196,13 +289,21 @@ export const CommentsThreadTree: React.FC<CommentsThreadTreeProps> = ({
   comments,
   threadAuthorId,
 }) => {
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null)
+
+  const { mutate: toggleVote } = useToggleCommentVoteMutation()
+
   return (
     <div className="relative space-y-8">
-      {comments.map((comment) => (
-        <CommentsThreadTreeNode
+      {comments.map((comment, index) => (
+        <CommentThreadNode
           key={comment.id}
           comment={comment}
-          depth={comment.depth}
+          depth={0}
+          activeReplyId={activeReplyId}
+          setActiveReplyId={setActiveReplyId}
+          isLast={index === comments.length - 1}
+          toggleVote={toggleVote}
           threadAuthorId={threadAuthorId}
         />
       ))}

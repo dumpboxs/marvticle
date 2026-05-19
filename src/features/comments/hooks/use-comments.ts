@@ -1,5 +1,4 @@
 import {
-  useInfiniteQuery,
   useMutation,
   useQueryClient,
   useSuspenseInfiniteQuery,
@@ -11,18 +10,22 @@ import {
   commentRepliesInfiniteQueryOptions,
   threadCommentsInfiniteQueryOptions,
 } from '#/features/comments/query-options'
+import type { ThreadCommentsInfiniteQueryOptionsInput } from '#/features/comments/query-options'
 import { threadDetailQueryOptions } from '#/features/threads/query-options'
 import { orpc } from '#/orpc/client'
+import type { RouterOutputs } from '#/orpc/routers'
+
+export type CommentOutput = RouterOutputs['comments']['list']['items'][number]
 
 export {
   commentRepliesInfiniteQueryOptions,
   threadCommentsInfiniteQueryOptions,
 }
 
-const threadCommentsKey = (threadSlug: string) =>
+export const threadCommentsKey = (threadSlug: string) =>
   orpc.comments.list.key({ type: 'infinite', input: { threadSlug } })
 
-const commentRepliesKey = (parentId: string) =>
+export const commentRepliesKey = (parentId: string) =>
   orpc.comments.listReplies.key({ type: 'infinite', input: { parentId } })
 
 const invalidateThreadCommentQueries = (
@@ -39,11 +42,10 @@ const invalidateThreadCommentQueries = (
 
 export const useThreadCommentsInfiniteQuery = ({
   threadSlug,
-}: {
-  threadSlug: string
-}) => {
+  sortBy,
+}: ThreadCommentsInfiniteQueryOptionsInput) => {
   const query = useSuspenseInfiniteQuery(
-    threadCommentsInfiniteQueryOptions({ threadSlug })
+    threadCommentsInfiniteQueryOptions({ threadSlug, sortBy })
   )
   const comments = query.data.pages.flatMap((page) => page.items)
   const totalCount = query.data.pages.at(-1)?.totalCount ?? 0
@@ -58,15 +60,18 @@ export const useThreadCommentsInfiniteQuery = ({
 export const useCommentRepliesInfiniteQuery = ({
   parentId,
   enabled = true,
+  comment,
 }: {
   parentId: string
   enabled?: boolean
+  comment?: CommentOutput
 }) => {
-  const query = useInfiniteQuery(
-    commentRepliesInfiniteQueryOptions({ parentId, enabled })
+  const query = useSuspenseInfiniteQuery(
+    commentRepliesInfiniteQueryOptions({ parentId, enabled, comment })
   )
-  const replies = query.data?.pages.flatMap((page) => page.items) ?? []
-  const totalCount = query.data?.pages.at(-1)?.totalCount ?? 0
+
+  const replies = query.data.pages.flatMap((page) => page.items)
+  const totalCount = query.data.pages.at(-1)?.totalCount ?? 0
 
   return {
     ...query,
